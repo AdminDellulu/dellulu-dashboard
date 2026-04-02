@@ -934,6 +934,17 @@
                 <div class="tab-content active" id="overview">
                     <div id="overviewAlerts"></div>
                     <div class="kpi-row" id="overviewKPIs"></div>
+
+                    <!-- Row 1: Key Metrics Dashboard + Growth Trajectory (side by side) -->
+                    <div class="grid-2">
+                        <div class="chart-box" id="keyMetricsDashboard"></div>
+                        <div class="chart-box">
+                            <div class="chart-title" style="margin-bottom:14px">Growth Trajectory</div>
+                            <div class="chart-inner" style="height:260px;"><canvas id="growthTrajectoryChart"></canvas></div>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Revenue & Orders + Payment Mix -->
                     <div class="grid-3-1">
                         <div class="chart-box">
                             <div class="chart-header" style="display:flex;align-items:center;justify-content:space-between;"><div class="chart-title">Revenue & Orders</div><div class="dwm-slot" data-dwm="true"></div></div>
@@ -945,13 +956,26 @@
                         </div>
                     </div>
 
-                    <!-- Ad Efficiency Snapshot + Shipping Health -->
+                    <!-- Row 3: Cash Flow Waterfall TABLE -->
+                    <div class="chart-box" id="cashFlowTableContainer"></div>
+
+                    <!-- Row 4: Ad Efficiency + Shipping Health -->
                     <div class="grid-2" id="overviewEfficientcy"></div>
 
-                    <div class="chart-box">
-                        <div class="chart-title" style="margin-bottom:14px">Cash Flow Waterfall</div>
-                        <div class="chart-inner" style="height:300px;"><canvas id="waterfallChart"></canvas></div>
+                    <!-- Row 5: RTO Rate Trend + NDR Summary (side by side) -->
+                    <div class="grid-2">
+                        <div class="chart-box">
+                            <div class="chart-header" style="display:flex;align-items:center;justify-content:space-between;">
+                                <div class="chart-title">RTO Rate Trend</div>
+                                <div class="dwm-slot" data-dwm="true"></div>
+                            </div>
+                            <div class="chart-inner" style="height:220px;"><canvas id="overviewRtoTrendChart"></canvas></div>
+                        </div>
+                        <div class="chart-box" id="ndrSummaryCard"></div>
                     </div>
+
+                    <!-- Row 6: Financial Projections table -->
+                    <div class="chart-box" id="financialProjectionsContainer"></div>
                 </div>
 
                 <!-- ===== PRODUCTS ===== -->
@@ -1973,13 +1997,13 @@
     function dc(id) { if(charts[id]) { charts[id].destroy(); delete charts[id]; } }
 
     const C = {
-        purple: 'rgba(168,85,247,0.6)', teal: 'rgba(6,214,160,0.6)', green: 'rgba(34,197,94,0.6)',
-        gold: 'rgba(251,191,36,0.6)', pink: 'rgba(236,72,153,0.6)', red: 'rgba(248,113,113,0.6)',
-        orange: 'rgba(249,115,22,0.6)', blue: 'rgba(59,130,246,0.6)', indigo: 'rgba(99,102,241,0.6)', amber: 'rgba(245,158,11,0.6)',
+        purple: 'rgba(124,58,237,0.6)', teal: 'rgba(6,214,160,0.6)', green: 'rgba(5,150,105,0.6)',
+        gold: 'rgba(245,158,11,0.6)', pink: 'rgba(236,72,153,0.6)', red: 'rgba(248,113,113,0.6)',
+        orange: 'rgba(249,115,22,0.6)', blue: 'rgba(59,130,246,0.6)', indigo: 'rgba(99,102,241,0.6)', amber: 'rgba(245,158,11,0.6)', grey: 'rgba(203,213,225,0.6)',
     };
     const B = {
-        purple:'#a855f7', teal:'#06d6a0', green:'#16a34a', gold:'#fbbf24',
-        pink:'#ec4899', red:'#f87171', orange:'#f97316', orangeWarm:'#d97706', blue:'#3b82f6', indigo:'#6366f1', amber:'#f59e0b',
+        purple:'#7c3aed', teal:'#06d6a0', green:'#059669', gold:'#f59e0b',
+        pink:'#ec4899', red:'#f87171', orange:'#f97316', orangeWarm:'#d97706', blue:'#3b82f6', indigo:'#6366f1', amber:'#f59e0b', grey:'#cbd5e1',
     };
 
     function chartDefaults() {
@@ -2162,7 +2186,7 @@
                     </div>
                 </div>
                 <div style="display:flex;gap:8px;font-size:10px;margin-bottom:12px;">
-                    <span style="background:rgba(34,197,94,0.15);color:var(--green);padding:4px 10px;border-radius:20px;"><strong>${deliveredCount}</strong> Delivered</span>
+                    <span style="background:rgba(5,150,105,0.15);color:var(--green);padding:4px 10px;border-radius:20px;"><strong>${deliveredCount}</strong> Delivered</span>
                     <span style="background:rgba(248,113,113,0.15);color:var(--red);padding:4px 10px;border-radius:20px;"><strong>${rtoCount}</strong> RTO (${pct(rtoRateShip)})</span>
                 </div>
                 <div style="font-size:11px;color:var(--text-sec);line-height:1.5;">
@@ -2178,6 +2202,12 @@
 
         renderRevenueOrdersChart(data, dur);
         renderPaymentMixChart(totalCOD, totalPrepaid);
+        renderOverviewRtoTrend(data, dur);
+        renderKeyMetricsDashboard(data, dur, {totalRev, totalOrders, margin, rtoRate, prepaidPct, roas, aov});
+        renderGrowthTrajectory(data, dur);
+        renderCashFlowTable(data);
+        renderNdrSummaryCard();
+        renderFinancialProjections(data, dur);
     }
 
     function renderRevenueOrdersChart(data, dur) {
@@ -2224,6 +2254,260 @@
         });
     }
 
+    function renderOverviewRtoTrend(data, dur) {
+        dc('overviewRtoTrend'); const cd = chartDefaults();
+        const ctx = document.getElementById('overviewRtoTrendChart'); if (!ctx) return;
+        const rtoData = data.map(d => d.rto !== undefined && d.rto !== null ? (d.orders > 0 ? (d.rto / d.orders) * 100 : null) : null);
+        const targetLine = data.map(() => 5);
+        charts['overviewRtoTrend'] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.map(d => getChartLabel(d, dur)),
+                datasets: [
+                    { label: 'RTO Rate %', data: rtoData, borderColor: B.pink, backgroundColor: C.pink, borderWidth: 2.5, tension: 0.4, fill: true, pointRadius: 2, pointBackgroundColor: B.pink, spanGaps: true },
+                    { label: 'Target (5%)', data: targetLine, borderColor: B.grey, borderWidth: 1.5, borderDash: [6,4], tension: 0, pointRadius: 0 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    y: { type:'linear', position:'left', min: 0, max: Math.max(25, Math.ceil((Math.max(...rtoData.filter(v=>v!==null)) || 10) / 5) * 5), ticks: { color: cd.color, callback: v => v + '%' }, grid: { color: cd.gridColor } },
+                    x: { ticks: { color: cd.color, maxRotation: 0, autoSkipPadding: 10 }, grid: { display: false } }
+                },
+                plugins: { legend: { labels: { color: cd.color, usePointStyle: true, pointStyle: 'circle' } } }
+            }
+        });
+    }
+
+    function renderKeyMetricsDashboard(data, dur, metrics) {
+        const el = document.getElementById('keyMetricsDashboard'); if (!el) return;
+        const {totalRev, totalOrders, margin, rtoRate, prepaidPct, roas, aov} = metrics;
+        // Compute weekly-equivalent targets based on duration
+        const days = data.length || 1;
+        const weeklyRevTarget = 700000; // ₹7L/week
+        const weeklyOrderTarget = 500;
+        const revTarget = dur === '7d' ? weeklyRevTarget : dur === '30d' ? weeklyRevTarget * 4 : dur === '90d' ? weeklyRevTarget * 13 : weeklyRevTarget / 7;
+        const orderTarget = dur === '7d' ? weeklyOrderTarget : dur === '30d' ? weeklyOrderTarget * 4 : dur === '90d' ? weeklyOrderTarget * 13 : Math.round(weeklyOrderTarget / 7);
+
+        const items = [
+            { label: 'Revenue', value: fmtR(totalRev), target: `Target: ${fmtR(revTarget)}`, ok: totalRev >= revTarget },
+            { label: 'Orders', value: totalOrders.toLocaleString(), target: `Target: ${orderTarget.toLocaleString()}`, ok: totalOrders >= orderTarget },
+            { label: 'Avg Margin', value: pct(margin), target: 'Target: 45%', ok: margin >= 45 },
+            { label: 'RTO Rate', value: pct(rtoRate), target: 'Target: <5%', ok: rtoRate < 5 },
+            { label: 'Prepaid Ratio', value: pct(prepaidPct), target: 'Target: >40%', ok: prepaidPct > 40 },
+            { label: 'ROAS', value: roas.toFixed(1) + 'x', target: 'Target: >3x', ok: roas > 3 },
+        ];
+
+        el.innerHTML = `
+            <div class="chart-title" style="margin-bottom:16px">Key Metrics Dashboard</div>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                ${items.map(m => `
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:10px;background:${m.ok ? 'rgba(5,150,105,0.06)' : 'rgba(248,113,113,0.06)'};">
+                        <div style="font-size:13px;font-weight:500;color:var(--text);">${m.label}</div>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <span style="font-size:16px;font-weight:700;color:var(--text);">${m.value}</span>
+                            <span style="font-size:11px;color:var(--text-sec);">${m.target}</span>
+                            <span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;background:${m.ok ? 'rgba(5,150,105,0.15)' : 'rgba(248,113,113,0.15)'};color:${m.ok ? 'var(--green)' : 'var(--red)'};">${m.ok ? 'ON TRACK' : 'BELOW'}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    function renderGrowthTrajectory(data, dur) {
+        dc('growthTrajectory'); const cd = chartDefaults();
+        const ctx = document.getElementById('growthTrajectoryChart'); if (!ctx) return;
+        // Use weekly aggregation for better trajectory view when enough data
+        let chartData, labels;
+        if (data.length > 14) {
+            // Aggregate by week
+            const weeks = []; let week = { rev: 0, profit: 0, label: '' };
+            data.forEach((d, i) => {
+                if (i % 7 === 0 && i > 0) { weeks.push({...week}); week = { rev: 0, profit: 0, label: '' }; }
+                week.rev += d.rev; week.profit += d.profit;
+                if (!week.label) week.label = getChartLabel(d, dur);
+            });
+            if (week.rev > 0) weeks.push(week);
+            chartData = weeks; labels = weeks.map((w, i) => `W${i + 1}`);
+        } else {
+            chartData = data; labels = data.map(d => getChartLabel(d, dur));
+        }
+
+        charts['growthTrajectory'] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'Revenue', data: chartData.map(d => d.rev), borderColor: B.green, backgroundColor: 'rgba(5,150,105,0.08)', borderWidth: 2.5, tension: 0.4, fill: true, pointRadius: 4, pointBackgroundColor: B.green, pointBorderColor: '#fff', pointBorderWidth: 2 },
+                    { label: 'Profit', data: chartData.map(d => d.profit), borderColor: B.purple, backgroundColor: 'rgba(124,58,237,0.08)', borderWidth: 2.5, tension: 0.4, fill: true, pointRadius: 4, pointBackgroundColor: B.purple, pointBorderColor: '#fff', pointBorderWidth: 2 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    y: { ticks: { color: cd.color, callback: v => fmtR(v) }, grid: { color: cd.gridColor } },
+                    x: { ticks: { color: cd.color, maxRotation: 0, autoSkipPadding: 10 }, grid: { display: false } }
+                },
+                plugins: { legend: { labels: { color: cd.color, usePointStyle: true, pointStyle: 'circle' } } }
+            }
+        });
+    }
+
+    function renderCashFlowTable(data) {
+        const el = document.getElementById('cashFlowTableContainer'); if (!el) return;
+        const totalRev = sum(data,'rev'), totalCOGS = sum(data,'cogs'), totalAdSpend = sum(data,'adSpend');
+        const totalShip = sum(data,'ship'), totalGST = sum(data,'gst'), totalPkg = sum(data,'pkg');
+        const totalGW = sum(data,'gw'), totalProfit = sum(data,'profit');
+        const cm1 = totalRev - totalCOGS;
+        const cm2 = cm1 - totalAdSpend;
+        const cm3 = cm2 - totalShip - totalPkg;
+        const netProfit = cm3 - totalGST - totalGW;
+
+        const rows = [
+            { label: 'Revenue', amount: totalRev, type: 'revenue' },
+            { label: 'COGS', amount: -totalCOGS, type: 'cost' },
+            { label: 'CM1 (Gross Margin)', amount: cm1, type: 'subtotal' },
+            { label: 'Ad Spend', amount: -totalAdSpend, type: 'cost' },
+            { label: 'CM2 (After Ads)', amount: cm2, type: 'subtotal' },
+            { label: 'Shipping', amount: -totalShip, type: 'cost' },
+            { label: 'Packaging', amount: -totalPkg, type: 'cost' },
+            { label: 'CM3 (After Fulfillment)', amount: cm3, type: 'subtotal' },
+            { label: 'GST', amount: -totalGST, type: 'cost' },
+            { label: 'Payment Gateway', amount: -totalGW, type: 'cost' },
+            { label: 'Net Profit', amount: netProfit, type: 'profit' },
+        ];
+
+        el.innerHTML = `
+            <div class="chart-title" style="margin-bottom:14px">Cash Flow Waterfall</div>
+            <table style="width:100%;border-collapse:separate;border-spacing:0 4px;font-size:13px;">
+                <thead>
+                    <tr style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-sec);font-weight:600;">
+                        <td style="padding:6px 12px;">Item</td>
+                        <td style="padding:6px 12px;text-align:right;">Amount</td>
+                        <td style="padding:6px 12px;text-align:right;">% of Revenue</td>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows.map(r => {
+                        const pctVal = totalRev > 0 ? (Math.abs(r.amount) / totalRev * 100).toFixed(1) : '0.0';
+                        const isPositive = r.amount >= 0;
+                        const bg = r.type === 'subtotal' ? 'rgba(124,58,237,0.04)' : r.type === 'profit' ? (isPositive ? 'rgba(5,150,105,0.08)' : 'rgba(248,113,113,0.08)') : r.type === 'revenue' ? 'rgba(5,150,105,0.04)' : 'transparent';
+                        const fontWeight = (r.type === 'subtotal' || r.type === 'profit' || r.type === 'revenue') ? '700' : '400';
+                        const amtColor = r.type === 'revenue' ? 'var(--green)' : r.type === 'cost' ? 'var(--red)' : r.type === 'profit' ? (isPositive ? 'var(--green)' : 'var(--red)') : 'var(--purple)';
+                        return `<tr style="background:${bg};border-radius:8px;">
+                            <td style="padding:10px 12px;font-weight:${fontWeight};color:var(--text);border-radius:8px 0 0 8px;">${r.label}</td>
+                            <td style="padding:10px 12px;text-align:right;font-weight:${fontWeight};color:${amtColor};font-variant-numeric:tabular-nums;">${r.amount < 0 ? '−' : ''}₹${Math.abs(r.amount).toLocaleString('en-IN')}</td>
+                            <td style="padding:10px 12px;text-align:right;color:var(--text-sec);border-radius:0 8px 8px 0;">${pctVal}%</td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
+    function renderNdrSummaryCard() {
+        const el = document.getElementById('ndrSummaryCard'); if (!el) return;
+        const shipRaw = DATA.shipments.raw || [];
+        const ndrShipments = shipRaw.filter(s => s.ndr_reason && s.ndr_reason !== '');
+        const ndrCount = ndrShipments.length;
+        const totalShipped = shipRaw.length;
+        const ndrRate = totalShipped > 0 ? (ndrCount / totalShipped * 100) : 0;
+
+        // NDR reasons breakdown
+        const reasons = {};
+        ndrShipments.forEach(s => {
+            const r = s.ndr_reason || 'Unknown';
+            reasons[r] = (reasons[r] || 0) + 1;
+        });
+        const sortedReasons = Object.entries(reasons).sort((a,b) => b[1] - a[1]).slice(0, 5);
+
+        // NDR to RTO conversion
+        const ndrToRto = ndrShipments.filter(s => s.status === 'rto').length;
+        const conversionRate = ndrCount > 0 ? (ndrToRto / ndrCount * 100) : 0;
+        // NDR recovered (delivered after NDR)
+        const ndrRecovered = ndrShipments.filter(s => s.status === 'delivered').length;
+        const recoveryRate = ndrCount > 0 ? (ndrRecovered / ndrCount * 100) : 0;
+
+        el.innerHTML = `
+            <div class="chart-title" style="margin-bottom:16px">NDR Summary</div>
+            <div style="display:flex;gap:16px;margin-bottom:16px;">
+                <div style="flex:1;">
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-sec);font-weight:600;margin-bottom:4px;">NDR Count</div>
+                    <div style="font-size:28px;font-weight:800;color:${ndrRate > 10 ? 'var(--red)' : ndrRate > 5 ? 'var(--gold)' : 'var(--green)'}">${ndrCount}</div>
+                    <div style="font-size:11px;color:var(--text-sec);">${pct(ndrRate)} of shipped</div>
+                </div>
+                <div style="flex:1;">
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-sec);font-weight:600;margin-bottom:4px;">NDR→RTO</div>
+                    <div style="font-size:22px;font-weight:700;color:var(--red)">${pct(conversionRate)}</div>
+                    <div style="font-size:11px;color:var(--text-sec);">${ndrToRto} converted</div>
+                </div>
+                <div style="flex:1;">
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-sec);font-weight:600;margin-bottom:4px;">Recovered</div>
+                    <div style="font-size:22px;font-weight:700;color:var(--green)">${pct(recoveryRate)}</div>
+                    <div style="font-size:11px;color:var(--text-sec);">${ndrRecovered} delivered</div>
+                </div>
+            </div>
+            ${sortedReasons.length > 0 ? `
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-sec);font-weight:600;margin-bottom:8px;">Top NDR Reasons</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+                ${sortedReasons.map(([reason, count]) => {
+                    const barPct = ndrCount > 0 ? (count / ndrCount * 100) : 0;
+                    return `<div style="display:flex;align-items:center;gap:8px;">
+                        <div style="flex:1;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${reason}</div>
+                        <div style="width:100px;height:6px;background:var(--card-bg);border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;width:${barPct}%;background:#f59e0b;border-radius:3px;"></div>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-sec);min-width:24px;text-align:right;">${count}</div>
+                    </div>`;
+                }).join('')}
+            </div>` : '<div style="font-size:12px;color:var(--text-sec);">No NDR data available</div>'}
+        `;
+    }
+
+    function renderFinancialProjections(data, dur) {
+        const el = document.getElementById('financialProjectionsContainer'); if (!el) return;
+        // Use last 7 days as base for weekly projection
+        const recent = data.slice(-7);
+        if (recent.length < 3) { el.innerHTML = ''; return; }
+        const weekRev = sum(recent, 'rev');
+        const weekProfit = sum(recent, 'profit');
+        const weekOrders = sum(recent, 'orders');
+        // Simple growth factor (5% week-over-week assumption)
+        const growthRate = 1.05;
+        const weeks = [
+            { label: 'Week 1 (Current)', rev: weekRev, profit: weekProfit, orders: weekOrders },
+            { label: 'Week 2', rev: weekRev * growthRate, profit: weekProfit * growthRate, orders: Math.round(weekOrders * growthRate) },
+            { label: 'Week 3', rev: weekRev * growthRate**2, profit: weekProfit * growthRate**2, orders: Math.round(weekOrders * growthRate**2) },
+            { label: 'Week 4', rev: weekRev * growthRate**3, profit: weekProfit * growthRate**3, orders: Math.round(weekOrders * growthRate**3) },
+        ];
+
+        el.innerHTML = `
+            <div class="chart-title" style="margin-bottom:14px">Financial Projections — 4 Week</div>
+            <table style="width:100%;border-collapse:separate;border-spacing:0 4px;font-size:13px;">
+                <thead>
+                    <tr style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-sec);font-weight:600;">
+                        <td style="padding:8px 12px;">Week</td>
+                        <td style="padding:8px 12px;text-align:right;">Revenue</td>
+                        <td style="padding:8px 12px;text-align:right;">Profit</td>
+                        <td style="padding:8px 12px;text-align:right;">Orders</td>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${weeks.map((w, i) => `
+                        <tr style="background:${i === 0 ? 'rgba(124,58,237,0.04)' : 'transparent'};border-radius:8px;">
+                            <td style="padding:10px 12px;font-weight:${i === 0 ? '600' : '400'};color:var(--text);border-radius:8px 0 0 8px;">${w.label}</td>
+                            <td style="padding:10px 12px;text-align:right;font-weight:500;color:var(--text);font-variant-numeric:tabular-nums;">₹${Math.round(w.rev).toLocaleString('en-IN')}</td>
+                            <td style="padding:10px 12px;text-align:right;font-weight:500;color:${w.profit >= 0 ? 'var(--green)' : 'var(--red)'};font-variant-numeric:tabular-nums;">₹${Math.round(w.profit).toLocaleString('en-IN')}</td>
+                            <td style="padding:10px 12px;text-align:right;font-weight:500;color:var(--text);border-radius:0 8px 8px 0;">${w.orders.toLocaleString()}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
     function renderMarginCacChart(data, dur) {
         dc('marginCac'); const cd = chartDefaults();
         const ctx = document.getElementById('marginCacChart'); if (!ctx) return;
@@ -2234,7 +2518,7 @@
             data: {
                 labels: data.map(d => getChartLabel(d, dur)),
                 datasets: [
-                    { label: 'Margin %', data: marginData, borderColor: B.green, backgroundColor: 'rgba(34,197,94,0.08)', borderWidth: 2.5, tension: 0.4, fill: true, pointRadius: 3, pointBackgroundColor: B.green, spanGaps: true },
+                    { label: 'Margin %', data: marginData, borderColor: B.green, backgroundColor: 'rgba(5,150,105,0.08)', borderWidth: 2.5, tension: 0.4, fill: true, pointRadius: 3, pointBackgroundColor: B.green, spanGaps: true },
                     { label: 'Target (50%)', data: targetLine, borderColor: B.gold, borderWidth: 1.5, borderDash: [6,4], tension: 0, pointRadius: 0 },
                     { label: 'CAC (₹)', data: data.map(d => d.cac > 0 ? d.cac : null), borderColor: B.orange, borderWidth: 2, tension: 0.4, yAxisID: 'y1', pointRadius: 2, pointBackgroundColor: B.orange, spanGaps: true }
                 ]
@@ -2870,7 +3154,7 @@
             charts['roasTrend'] = new Chart(ctx2, { type: 'line', data: {
                 labels: dm.map(d=>getChartLabel(d, document.getElementById('durationSelect').value)),
                 datasets: [
-                    { label: 'Daily ROAS', data: dm.map(d=>d.adSpend>0?d.rev/d.adSpend:null), borderColor: B.gold, backgroundColor: 'rgba(251,191,36,0.08)', borderWidth: 2, tension: 0.4, fill: true, spanGaps: true, pointRadius: 2 },
+                    { label: 'Daily ROAS', data: dm.map(d=>d.adSpend>0?d.rev/d.adSpend:null), borderColor: B.gold, backgroundColor: 'rgba(245,158,11,0.08)', borderWidth: 2, tension: 0.4, fill: true, spanGaps: true, pointRadius: 2 },
                     { label: 'Target (3x)', data: dm.map(()=>3), borderColor: B.green, borderWidth: 1.5, borderDash: [5,5], tension: 0, pointRadius: 0 }
                 ]
             }, options: { responsive:true, maintainAspectRatio:false, scales: { y: { ticks: { color: cd.color, callback: v=>v.toFixed(1)+'x' }, grid: { color: cd.gridColor } }, x: { ticks: { color: cd.color, maxRotation:0 }, grid: { display:false } } }, plugins: { legend: { labels: { color: cd.color } } } } });
@@ -2958,8 +3242,8 @@
                 const pLabels = prodArr.map(p => p.name);
                 const pRoas = prodArr.map(p => parseFloat(p.roas.toFixed(2)));
                 // Color by ROAS: green >4x, teal 3-4x, gold 2-3x, red <2x
-                const pColors = pRoas.map(r => r >= 4 ? 'rgba(6,214,160,0.75)' : r >= 3 ? 'rgba(34,211,238,0.7)' : r >= 2 ? 'rgba(251,191,36,0.7)' : 'rgba(248,113,113,0.7)');
-                const pBorders = pRoas.map(r => r >= 4 ? 'rgb(6,214,160)' : r >= 3 ? 'rgb(34,211,238)' : r >= 2 ? 'rgb(251,191,36)' : 'rgb(248,113,113)');
+                const pColors = pRoas.map(r => r >= 4 ? 'rgba(6,214,160,0.75)' : r >= 3 ? 'rgba(34,211,238,0.7)' : r >= 2 ? 'rgba(245,158,11,0.7)' : 'rgba(248,113,113,0.7)');
+                const pBorders = pRoas.map(r => r >= 4 ? 'rgb(6,214,160)' : r >= 3 ? 'rgb(34,211,238)' : r >= 2 ? 'rgb(245,158,11)' : 'rgb(248,113,113)');
 
                 am2El.innerHTML = `<div class="chart-title">ROAS by Product</div><div class="chart-inner" style="min-height:${Math.max(200, prodArr.length * 36 + 40)}px;"><canvas id="productRoasBar"></canvas></div>`;
 
@@ -3319,8 +3603,8 @@
             charts['revVsAd'] = new Chart(ctxRA, { type: 'bar', data: {
                 labels: data.map(d => getChartLabel(d, dur)),
                 datasets: [
-                    { label: 'Revenue', data: data.map(d => d.rev), backgroundColor: 'rgba(168,85,247,0.5)', borderRadius: 4, order: 2, barPercentage: 0.7 },
-                    { label: 'Ad Spend', data: data.map(d => d.adSpend), backgroundColor: 'rgba(251,191,36,0.7)', borderRadius: 4, order: 2, barPercentage: 0.7 },
+                    { label: 'Revenue', data: data.map(d => d.rev), backgroundColor: 'rgba(124,58,237,0.5)', borderRadius: 4, order: 2, barPercentage: 0.7 },
+                    { label: 'Ad Spend', data: data.map(d => d.adSpend), backgroundColor: 'rgba(245,158,11,0.7)', borderRadius: 4, order: 2, barPercentage: 0.7 },
                     { label: 'ROAS', data: data.map(d => d.adSpend > 0 ? d.rev / d.adSpend : 0), type: 'line', borderColor: B.green, borderWidth: 2.5, tension: 0.4, yAxisID: 'y1', pointRadius: 2, pointBackgroundColor: C.green }
                 ]
             }, options: {
@@ -3447,7 +3731,7 @@
             charts['orderTrend'] = new Chart(ctxOT, { type: 'bar', data: {
                 labels: data.map(d => getChartLabel(d, dur)),
                 datasets: [
-                    { label: 'Orders', data: data.map(d => d.orders), backgroundColor: 'rgba(168,85,247,0.4)', borderRadius: 4, order: 2 },
+                    { label: 'Orders', data: data.map(d => d.orders), backgroundColor: 'rgba(124,58,237,0.4)', borderRadius: 4, order: 2 },
                     { label: 'AOV', data: data.map(d => d.aov), type: 'line', borderColor: B.gold, borderWidth: 2.5, tension: 0.4, yAxisID: 'y1', pointRadius: 2, pointBackgroundColor: C.gold }
                 ]
             }, options: {
@@ -3469,7 +3753,7 @@
                 labels: data.map(d => getChartLabel(d, dur)),
                 datasets: [
                     { label: 'Prepaid', data: data.map(d => d.prepaid), backgroundColor: 'rgba(6,214,160,0.6)', borderRadius: { topLeft: 4, topRight: 4 }, stack: 'mix' },
-                    { label: 'COD', data: data.map(d => d.cod), backgroundColor: 'rgba(251,191,36,0.6)', stack: 'mix' }
+                    { label: 'COD', data: data.map(d => d.cod), backgroundColor: 'rgba(245,158,11,0.6)', stack: 'mix' }
                 ]
             }, options: {
                 responsive: true, maintainAspectRatio: false,
@@ -3490,7 +3774,7 @@
                 datasets: [
                     { label: 'Revenue', data: data.map(d => d.rev), borderColor: B.purple, borderWidth: 2, tension: 0.4, fill: false, pointRadius: 1 },
                     { label: 'Prepaid Collected', data: data.map(d => d.cashPrepaid), borderColor: B.green, backgroundColor: 'rgba(22,163,74,0.08)', borderWidth: 2, tension: 0.4, fill: true, pointRadius: 1 },
-                    { label: 'COD Collected', data: data.map(d => d.cashCOD), borderColor: B.gold, backgroundColor: 'rgba(251,191,36,0.08)', borderWidth: 2, tension: 0.4, fill: true, pointRadius: 1 },
+                    { label: 'COD Collected', data: data.map(d => d.cashCOD), borderColor: B.gold, backgroundColor: 'rgba(245,158,11,0.08)', borderWidth: 2, tension: 0.4, fill: true, pointRadius: 1 },
                     { label: 'Costs', data: data.map(d => d.cogs + d.adSpend + d.ship + d.gst + d.gw + d.pkg + (d.rtoCost||0)), borderColor: B.red, borderWidth: 1.5, borderDash: [4, 3], tension: 0.4, fill: false, pointRadius: 0 }
                 ]
             }, options: {
@@ -4435,7 +4719,7 @@
             ndrConvEl.innerHTML = ndrReasons.slice(0, 10).map(n => {
                 const convPct = n.count > 0 ? (n.rto / n.count * 100) : 0;
                 const convColor = convPct >= 80 ? 'var(--red)' : convPct >= 50 ? 'var(--gold)' : 'var(--green)';
-                const badge = convPct >= 80 ? 'background:rgba(248,113,113,0.15);color:var(--red)' : convPct >= 50 ? 'background:rgba(251,191,36,0.15);color:var(--gold)' : 'background:rgba(6,214,160,0.15);color:var(--green)';
+                const badge = convPct >= 80 ? 'background:rgba(248,113,113,0.15);color:var(--red)' : convPct >= 50 ? 'background:rgba(245,158,11,0.15);color:var(--gold)' : 'background:rgba(6,214,160,0.15);color:var(--green)';
                 return `<tr>
                     <td style="padding:8px 16px;font-size:12px;">${n.reason.length > 35 ? n.reason.slice(0,33)+'…' : n.reason}</td>
                     <td style="padding:8px">${n.count}</td>
@@ -4549,7 +4833,7 @@
                             <div style="font-size:11px;color:var(--text-sec);">NDR: <strong>${prepaidNdrCount}</strong></div>
                         </div>
                     </div>
-                    <div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:8px;padding:10px;text-align:center;">
+                    <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px;padding:10px;text-align:center;">
                         <div style="font-size:12px;font-weight:700;color:var(--gold);">COD is <strong>${rtoMultiplier}×</strong> worse than Prepaid</div>
                     </div>
                 </div>
@@ -4955,18 +5239,18 @@
                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
                         <div style="width:70px;text-align:right;font-size:12px;color:var(--text-sec);font-weight:600;">Happy Path</div>
                         <div style="flex:1;display:flex;height:36px;border-radius:10px;overflow:hidden;font-size:11px;font-weight:600;background:var(--surface-2);box-shadow:inset 0 1px 2px rgba(0,0,0,0.05);">
-                            <div class="pipeline-segment-active" style="width:${manifestPct}%;background:linear-gradient(135deg, #a855f7 0%, #9333ea 100%);display:flex;align-items:center;justify-content:center;color:#fff;" title="Manifest: ${avgManifestHrs.toFixed(1)}h">${avgManifestHrs.toFixed(0)}h</div>
+                            <div class="pipeline-segment-active" style="width:${manifestPct}%;background:linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);display:flex;align-items:center;justify-content:center;color:#fff;" title="Manifest: ${avgManifestHrs.toFixed(1)}h">${avgManifestHrs.toFixed(0)}h</div>
                             <div style="width:${transitPct}%;background:linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);display:flex;align-items:center;justify-content:center;color:#fff;">Transit ${transitDays.toFixed(1)}d</div>
-                            <div style="width:${100 - manifestPct - transitPct}%;background:linear-gradient(135deg, #16a34a 0%, #15803d 100%);display:flex;align-items:center;justify-content:center;color:#fff;">✓ Delivered</div>
+                            <div style="width:${100 - manifestPct - transitPct}%;background:linear-gradient(135deg, #059669 0%, #047857 100%);display:flex;align-items:center;justify-content:center;color:#fff;">✓ Delivered</div>
                         </div>
                         <div style="width:60px;font-size:12px;color:var(--green);font-weight:700;">${avgDelDays.toFixed(1)}d total</div>
                     </div>
                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
                         <div style="width:70px;text-align:right;font-size:12px;color:var(--text-sec);font-weight:600;">NDR Path</div>
                         <div style="flex:1;display:flex;height:36px;border-radius:10px;overflow:hidden;font-size:11px;font-weight:600;background:var(--surface-2);box-shadow:inset 0 1px 2px rgba(0,0,0,0.05);">
-                            <div style="width:${manifestPct}%;background:linear-gradient(135deg, #a855f7 0%, #9333ea 100%);display:flex;align-items:center;justify-content:center;color:#fff;">${avgManifestHrs.toFixed(0)}h</div>
+                            <div style="width:${manifestPct}%;background:linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);display:flex;align-items:center;justify-content:center;color:#fff;">${avgManifestHrs.toFixed(0)}h</div>
                             <div style="width:${transitPct}%;background:linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);display:flex;align-items:center;justify-content:center;color:#fff;">Transit</div>
-                            <div style="width:${Math.max(4, 12)}%;background:linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);display:flex;align-items:center;justify-content:center;color:#000;">NDR ⚠</div>
+                            <div style="width:${Math.max(4, 12)}%;background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);display:flex;align-items:center;justify-content:center;color:#000;">NDR ⚠</div>
                             <div style="width:${Math.max(4, ndrRecovPct/5)}%;background:linear-gradient(135deg, rgba(16,185,129,0.8) 0%, rgba(5,150,105,0.8) 100%);display:flex;align-items:center;justify-content:center;color:#fff;">${ndrRecovPct}%✓</div>
                             <div style="width:${Math.max(4, ndrToRtoPct/5)}%;background:linear-gradient(135deg, #f87171 0%, #dc2626 100%);display:flex;align-items:center;justify-content:center;color:#fff;">${ndrToRtoPct}%</div>
                         </div>
@@ -4975,9 +5259,9 @@
                     <div style="display:flex;align-items:center;gap:10px;">
                         <div style="width:70px;text-align:right;font-size:12px;color:var(--text-sec);font-weight:600;">RTO Path</div>
                         <div style="flex:1;display:flex;height:36px;border-radius:10px;overflow:hidden;font-size:11px;font-weight:600;background:var(--surface-2);box-shadow:inset 0 1px 2px rgba(0,0,0,0.05);">
-                            <div style="width:${manifestPct}%;background:linear-gradient(135deg, #a855f7 0%, #9333ea 100%);display:flex;align-items:center;justify-content:center;color:#fff;">${avgManifestHrs.toFixed(0)}h</div>
+                            <div style="width:${manifestPct}%;background:linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);display:flex;align-items:center;justify-content:center;color:#fff;">${avgManifestHrs.toFixed(0)}h</div>
                             <div style="width:${transitPct * 0.6}%;background:linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);display:flex;align-items:center;justify-content:center;color:#fff;">Attempt</div>
-                            <div style="width:${Math.max(3, 10)}%;background:linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);display:flex;align-items:center;justify-content:center;color:#000;">NDR</div>
+                            <div style="width:${Math.max(3, 10)}%;background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);display:flex;align-items:center;justify-content:center;color:#000;">NDR</div>
                             <div style="width:${Math.max(3, 12)}%;background:linear-gradient(135deg, #f87171 0%, #dc2626 100%);display:flex;align-items:center;justify-content:center;color:#fff;">RTO Init</div>
                             <div style="width:${Math.max(3, 15)}%;background:linear-gradient(135deg, rgba(248,113,113,0.7) 0%, rgba(220,38,38,0.7) 100%);display:flex;align-items:center;justify-content:center;color:#fff;">Return</div>
                             <div style="width:${Math.max(2, 5)}%;background:linear-gradient(135deg, #94a3b8 0%, #64748b 100%);display:flex;align-items:center;justify-content:center;">🏠</div>
@@ -5362,7 +5646,7 @@
             charts['growth'] = new Chart(ctx, { type: 'line', data: {
                 labels: marchData.map(d=>fmtDate(d.d)),
                 datasets: [
-                    { label:'Actual', data:cumData, borderColor:B.purple, backgroundColor:'rgba(168,85,247,0.08)', borderWidth:3, tension:0.4, fill:true },
+                    { label:'Actual', data:cumData, borderColor:B.purple, backgroundColor:'rgba(124,58,237,0.08)', borderWidth:3, tension:0.4, fill:true },
                     { label:'Target (₹35L)', data:targetLine, borderColor:B.gold, borderWidth:2, borderDash:[5,5], tension:0, pointRadius:0 }
                 ]
             }, options: { responsive:true, maintainAspectRatio:false, scales: { y:{ticks:{color:cd.color,callback:v=>fmtR(v)},grid:{color:cd.gridColor}}, x:{ticks:{color:cd.color,maxRotation:0},grid:{display:false}} }, plugins: { legend:{labels:{color:cd.color}} } } });
@@ -5904,10 +6188,10 @@
         const f = window._fmtR;
 
         const config = {
-            spend:     { title: 'Ad Spend by Campaign',     key: 'spend',    format: v => f(v),           sort: (a,b) => b.spend - a.spend,    gradient: ['168,85,247', '59,130,246'],   valColor: '#7c3aed' },
+            spend:     { title: 'Ad Spend by Campaign',     key: 'spend',    format: v => f(v),           sort: (a,b) => b.spend - a.spend,    gradient: ['124,58,237', '59,130,246'],   valColor: '#7c3aed' },
             roas:      { title: 'ROAS by Campaign',          key: 'roas',     format: v => v.toFixed(2)+'x', sort: (a,b) => b.roas - a.roas,     gradient: ['6,214,160', '59,130,246'],    valColor: null },
-            cpr:       { title: 'CPR by Campaign',           key: 'cpa',      format: v => f(v),           sort: (a,b) => (a.cpa||Infinity) - (b.cpa||Infinity), gradient: ['6,214,160', '168,85,247'], valColor: '#047857' },
-            purchases: { title: 'Purchases by Campaign',     key: 'purchases', format: v => v.toLocaleString(), sort: (a,b) => b.purchases - a.purchases, gradient: ['251,191,36', '236,72,153'], valColor: '#b45309' },
+            cpr:       { title: 'CPR by Campaign',           key: 'cpa',      format: v => f(v),           sort: (a,b) => (a.cpa||Infinity) - (b.cpa||Infinity), gradient: ['6,214,160', '124,58,237'], valColor: '#047857' },
+            purchases: { title: 'Purchases by Campaign',     key: 'purchases', format: v => v.toLocaleString(), sort: (a,b) => b.purchases - a.purchases, gradient: ['245,158,11', '236,72,153'], valColor: '#b45309' },
             revenue:   { title: 'Ad Revenue by Campaign',    key: 'revenue',  format: v => f(v),           sort: (a,b) => b.revenue - a.revenue, gradient: ['22,163,74', '6,214,160'],     valColor: '#065f46' },
         };
         const cfg = config[metric];
@@ -5937,7 +6221,7 @@
 
             let vColor = cfg.valColor || barColor;
             if (metric === 'roas') {
-                vColor = c.spend === 0 ? 'var(--text-sec)' : c.roas >= 3 ? '#16a34a' : c.roas >= 1.5 ? '#d97706' : '#f87171';
+                vColor = c.spend === 0 ? 'var(--text-sec)' : c.roas >= 3 ? '#059669' : c.roas >= 1.5 ? '#d97706' : '#f87171';
             }
 
             bodyHTML += `<div style="border-radius:10px;padding:10px 14px;position:relative;overflow:hidden;background:${barBg}">
