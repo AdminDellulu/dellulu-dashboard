@@ -935,16 +935,7 @@
                     <div id="overviewAlerts"></div>
                     <div class="kpi-row" id="overviewKPIs"></div>
 
-                    <!-- Row 1: Key Metrics Dashboard + Growth Trajectory (side by side) -->
-                    <div class="grid-2">
-                        <div class="chart-box" id="keyMetricsDashboard"></div>
-                        <div class="chart-box">
-                            <div class="chart-title" style="margin-bottom:14px">Growth Trajectory</div>
-                            <div class="chart-inner" style="height:260px;"><canvas id="growthTrajectoryChart"></canvas></div>
-                        </div>
-                    </div>
-
-                    <!-- Row 2: Revenue & Orders + Payment Mix -->
+                    <!-- Row 1: Revenue & Orders (3/4) + Payment Mix (1/4) -->
                     <div class="grid-3-1">
                         <div class="chart-box">
                             <div class="chart-header" style="display:flex;align-items:center;justify-content:space-between;"><div class="chart-title">Revenue & Orders</div><div class="dwm-slot" data-dwm="true"></div></div>
@@ -956,13 +947,25 @@
                         </div>
                     </div>
 
-                    <!-- Row 3: Cash Flow Waterfall TABLE -->
-                    <div class="chart-box" id="cashFlowTableContainer"></div>
+                    <!-- Row 2: Growth Trajectory (full width with DWM) -->
+                    <div class="chart-box">
+                        <div class="chart-header" style="display:flex;align-items:center;justify-content:space-between;">
+                            <div class="chart-title">Growth Trajectory</div>
+                            <div class="dwm-slot" data-dwm="true"></div>
+                        </div>
+                        <div class="chart-inner" style="height:260px;"><canvas id="growthTrajectoryChart"></canvas></div>
+                    </div>
 
-                    <!-- Row 4: Ad Efficiency + Shipping Health -->
+                    <!-- Row 3: Cash Flow Waterfall (full width chart) -->
+                    <div class="chart-box">
+                        <div class="chart-title" style="margin-bottom:14px">Cash Flow Waterfall</div>
+                        <div class="chart-inner" style="height:300px;"><canvas id="waterfallChart"></canvas></div>
+                    </div>
+
+                    <!-- Row 4: Ad Efficiency (1/2) + Shipping Health (1/2) -->
                     <div class="grid-2" id="overviewEfficientcy"></div>
 
-                    <!-- Row 5: RTO Rate Trend + NDR Summary (side by side) -->
+                    <!-- Row 5: RTO Rate Trend (1/2) + NDR Summary (1/2) -->
                     <div class="grid-2">
                         <div class="chart-box">
                             <div class="chart-header" style="display:flex;align-items:center;justify-content:space-between;">
@@ -974,8 +977,11 @@
                         <div class="chart-box" id="ndrSummaryCard"></div>
                     </div>
 
-                    <!-- Row 6: Financial Projections table -->
-                    <div class="chart-box" id="financialProjectionsContainer"></div>
+                    <!-- Row 6: Key Metrics Dashboard (1/2) + Financial Projections (1/2) -->
+                    <div class="grid-2">
+                        <div class="chart-box" id="keyMetricsDashboard"></div>
+                        <div class="chart-box" id="financialProjectionsContainer"></div>
+                    </div>
                 </div>
 
                 <!-- ===== PRODUCTS ===== -->
@@ -2135,6 +2141,10 @@
             campaigns[name].spend += a.spend||0;
             campaigns[name].rev += a.revenue||0;
         });
+        const totalAdClicks = adData.reduce((s,a) => s + (a.clicks||0), 0);
+        const avgCPC = totalAdClicks > 0 ? totalAdSpendAll / totalAdClicks : 0;
+        const totalAdImpressions = adData.reduce((s,a) => s + (a.impressions||0), 0);
+        const avgCTR = totalAdImpressions > 0 ? (totalAdClicks / totalAdImpressions * 100) : 0;
         const campList = Object.entries(campaigns).map(([n,v]) => ({name:n, roas: v.spend > 0 ? v.rev/v.spend : 0, spend: v.spend}));
         const scaleCount = campList.filter(c => c.roas >= 3).length;
         const watchCount = campList.filter(c => c.roas >= 1.5 && c.roas < 3).length;
@@ -2143,21 +2153,32 @@
 
         // Shipping Health
         const shipData = DATA.shipments || {};
+        const shipRaw = shipData.raw || [];
         const totalShipped = shipData.total || 0;
-        const deliveredCount = shipData.delivered || 0;
+        const deliveredShips = shipRaw.filter(s => s.status === 'delivered');
+        const deliveredCount = deliveredShips.length;
         const rtoCount = shipData.rtoCount || 0;
-        const ndrCount = shipData.ndrCount || 0;
+        const ndrShips = shipRaw.filter(s => s.ndr_reason && s.ndr_reason.trim() !== '');
+        const ndrCount = ndrShips.length;
         const deliveryRate = totalShipped > 0 ? (deliveredCount / totalShipped * 100) : 0;
         const rtoRateShip = totalShipped > 0 ? (rtoCount / totalShipped * 100) : 0;
-        const avgDeliveryTime = shipData.avgDeliveryTime || 0;
+        // Compute avg delivery time from delivered shipments
+        let avgDeliveryTime = 0;
+        if (deliveredShips.length > 0) {
+            const delTimes = deliveredShips.filter(s => s.shipped_at && s.delivered_at).map(s => {
+                const d1 = new Date(s.shipped_at), d2 = new Date(s.delivered_at);
+                return (d2 - d1) / (1000 * 60 * 60 * 24);
+            }).filter(d => d > 0 && d < 60);
+            avgDeliveryTime = delTimes.length > 0 ? delTimes.reduce((a, b) => a + b, 0) / delTimes.length : 0;
+        }
 
         document.getElementById('overviewEfficientcy').innerHTML = `
             <div class="chart-box">
                 <div class="chart-title" style="margin-bottom:16px">📊 Ad Efficiency Snapshot</div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:14px;">
                     <div style="flex:1;">
-                        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-sec);font-weight:600;margin-bottom:4px;">Blended ROAS</div>
-                        <div style="font-size:28px;font-weight:800;color:${blendedROAS>=3?'var(--green)':blendedROAS>=2?'var(--gold)':'var(--red)'}">${blendedROAS.toFixed(2)}x</div>
+                        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-sec);font-weight:600;margin-bottom:4px;">Avg CPC</div>
+                        <div style="font-size:28px;font-weight:800;color:${avgCPC<15?'var(--green)':avgCPC<30?'var(--gold)':'var(--red)'}">₹${avgCPC.toFixed(0)}</div>
                     </div>
                     <div style="flex:1;text-align:right;">
                         <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-sec);font-weight:600;margin-bottom:4px;">Total Spend</div>
@@ -2165,11 +2186,14 @@
                     </div>
                 </div>
                 <div style="display:flex;gap:8px;margin-bottom:12px;">
-                    <span class="badge badge-scale">${scaleCount} Scale</span>
-                    <span class="badge badge-watch">${watchCount} Watch</span>
-                    <span class="badge badge-kill">${killCount} Kill</span>
+                    <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(5,150,105,0.12);color:var(--green);padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;">${scaleCount} Scale</span>
+                    <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(245,158,11,0.12);color:#f59e0b;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;">${watchCount} Watch</span>
+                    <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(248,113,113,0.12);color:var(--red);padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;">${killCount} Kill</span>
                 </div>
                 <div style="font-size:11px;color:var(--text-sec);line-height:1.5;">
+                    <strong>CTR:</strong> ${avgCTR.toFixed(2)}% · <strong>Clicks:</strong> ${totalAdClicks.toLocaleString()}
+                </div>
+                <div style="font-size:11px;color:var(--text-sec);line-height:1.5;margin-top:4px;">
                     <strong>Top campaign:</strong> ${topCamp ? topCamp.name.substring(0,30) + '...' : '—'} (${topCamp ? topCamp.roas.toFixed(1) + 'x' : '—'})
                 </div>
             </div>
@@ -2205,7 +2229,6 @@
         renderOverviewRtoTrend(data, dur);
         renderKeyMetricsDashboard(data, dur, {totalRev, totalOrders, margin, rtoRate, prepaidPct, roas, aov});
         renderGrowthTrajectory(data, dur);
-        renderCashFlowTable(data);
         renderNdrSummaryCard();
         renderFinancialProjections(data, dur);
     }
@@ -2257,7 +2280,7 @@
     function renderOverviewRtoTrend(data, dur) {
         dc('overviewRtoTrend'); const cd = chartDefaults();
         const ctx = document.getElementById('overviewRtoTrendChart'); if (!ctx) return;
-        const rtoData = data.map(d => d.rto !== undefined && d.rto !== null ? (d.orders > 0 ? (d.rto / d.orders) * 100 : null) : null);
+        const rtoData = data.map(d => d.rtoRate > 0 ? d.rtoRate : (d.rto > 0 && d.orders > 0 ? (d.rto / d.orders * 100) : null));
         const targetLine = data.map(() => 5);
         charts['overviewRtoTrend'] = new Chart(ctx, {
             type: 'line',
@@ -2468,41 +2491,70 @@
 
     function renderFinancialProjections(data, dur) {
         const el = document.getElementById('financialProjectionsContainer'); if (!el) return;
-        // Use last 7 days as base for weekly projection
-        const recent = data.slice(-7);
-        if (recent.length < 3) { el.innerHTML = ''; return; }
-        const weekRev = sum(recent, 'rev');
-        const weekProfit = sum(recent, 'profit');
-        const weekOrders = sum(recent, 'orders');
-        // Simple growth factor (5% week-over-week assumption)
-        const growthRate = 1.05;
-        const weeks = [
-            { label: 'Week 1 (Current)', rev: weekRev, profit: weekProfit, orders: weekOrders },
-            { label: 'Week 2', rev: weekRev * growthRate, profit: weekProfit * growthRate, orders: Math.round(weekOrders * growthRate) },
-            { label: 'Week 3', rev: weekRev * growthRate**2, profit: weekProfit * growthRate**2, orders: Math.round(weekOrders * growthRate**2) },
-            { label: 'Week 4', rev: weekRev * growthRate**3, profit: weekProfit * growthRate**3, orders: Math.round(weekOrders * growthRate**3) },
-        ];
+        if (data.length < 3) { el.innerHTML = ''; return; }
+
+        // Compute daily averages weighted toward recent days
+        const n = Math.min(data.length, 14);
+        const recent = data.slice(-n);
+        let wRevSum = 0, wProfitSum = 0, wOrderSum = 0, wTotal = 0;
+        recent.forEach((d, i) => {
+            const w = 1 + (i / n); // more recent = higher weight
+            wRevSum += d.rev * w; wProfitSum += d.profit * w; wOrderSum += d.orders * w; wTotal += w;
+        });
+        const dailyRev = wRevSum / wTotal;
+        const dailyProfit = wProfitSum / wTotal;
+        const dailyOrders = wOrderSum / wTotal;
+
+        // Calculate actual WoW growth from data
+        const firstHalf = data.slice(0, Math.floor(data.length / 2));
+        const secondHalf = data.slice(Math.floor(data.length / 2));
+        const revFirst = sum(firstHalf, 'rev') / Math.max(firstHalf.length, 1);
+        const revSecond = sum(secondHalf, 'rev') / Math.max(secondHalf.length, 1);
+        const weeklyGrowth = revFirst > 0 ? Math.min(Math.max((revSecond / revFirst - 1), -0.1), 0.15) : 0.02;
+
+        const weeks = [1, 2, 3, 4].map(w => {
+            const g = Math.pow(1 + weeklyGrowth, w - 1);
+            const rev = dailyRev * 7 * g;
+            const profit = dailyProfit * 7 * g;
+            const orders = Math.round(dailyOrders * 7 * g);
+            const margin = rev > 0 ? (profit / rev * 100) : 0;
+            return { label: w === 1 ? 'This Week' : `Week ${w}`, rev, profit, orders, margin };
+        });
+        const monthRev = weeks.reduce((a, w) => a + w.rev, 0);
+        const monthProfit = weeks.reduce((a, w) => a + w.profit, 0);
+        const monthOrders = weeks.reduce((a, w) => a + w.orders, 0);
+        const monthMargin = monthRev > 0 ? (monthProfit / monthRev * 100) : 0;
 
         el.innerHTML = `
-            <div class="chart-title" style="margin-bottom:14px">Financial Projections — 4 Week</div>
-            <table style="width:100%;border-collapse:separate;border-spacing:0 4px;font-size:13px;">
+            <div class="chart-title" style="margin-bottom:4px">Financial Projections</div>
+            <div style="font-size:10px;color:var(--text-sec);margin-bottom:12px;">Based on ${n}-day weighted trend · ${(weeklyGrowth * 100).toFixed(1)}% WoW growth</div>
+            <table style="width:100%;border-collapse:separate;border-spacing:0 3px;font-size:12px;">
                 <thead>
-                    <tr style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-sec);font-weight:600;">
-                        <td style="padding:8px 12px;">Week</td>
-                        <td style="padding:8px 12px;text-align:right;">Revenue</td>
-                        <td style="padding:8px 12px;text-align:right;">Profit</td>
-                        <td style="padding:8px 12px;text-align:right;">Orders</td>
+                    <tr style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-sec);font-weight:600;">
+                        <td style="padding:6px 8px;">Period</td>
+                        <td style="padding:6px 8px;text-align:right;">Revenue</td>
+                        <td style="padding:6px 8px;text-align:right;">Profit</td>
+                        <td style="padding:6px 8px;text-align:right;">Margin</td>
+                        <td style="padding:6px 8px;text-align:right;">Orders</td>
                     </tr>
                 </thead>
                 <tbody>
                     ${weeks.map((w, i) => `
-                        <tr style="background:${i === 0 ? 'rgba(124,58,237,0.04)' : 'transparent'};border-radius:8px;">
-                            <td style="padding:10px 12px;font-weight:${i === 0 ? '600' : '400'};color:var(--text);border-radius:8px 0 0 8px;">${w.label}</td>
-                            <td style="padding:10px 12px;text-align:right;font-weight:500;color:var(--text);font-variant-numeric:tabular-nums;">₹${Math.round(w.rev).toLocaleString('en-IN')}</td>
-                            <td style="padding:10px 12px;text-align:right;font-weight:500;color:${w.profit >= 0 ? 'var(--green)' : 'var(--red)'};font-variant-numeric:tabular-nums;">₹${Math.round(w.profit).toLocaleString('en-IN')}</td>
-                            <td style="padding:10px 12px;text-align:right;font-weight:500;color:var(--text);border-radius:0 8px 8px 0;">${w.orders.toLocaleString()}</td>
+                        <tr style="background:${i === 0 ? 'rgba(124,58,237,0.04)' : 'transparent'};">
+                            <td style="padding:8px;font-weight:${i === 0 ? '600' : '400'};color:var(--text);">${w.label}</td>
+                            <td style="padding:8px;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);">₹${Math.round(w.rev).toLocaleString('en-IN')}</td>
+                            <td style="padding:8px;text-align:right;color:${w.profit >= 0 ? 'var(--green)' : 'var(--red)'};font-variant-numeric:tabular-nums;">₹${Math.round(w.profit).toLocaleString('en-IN')}</td>
+                            <td style="padding:8px;text-align:right;color:${w.margin > 40 ? 'var(--green)' : w.margin > 20 ? 'var(--gold)' : 'var(--red)'};">${w.margin.toFixed(0)}%</td>
+                            <td style="padding:8px;text-align:right;color:var(--text);">${w.orders.toLocaleString()}</td>
                         </tr>
                     `).join('')}
+                    <tr style="background:rgba(124,58,237,0.08);font-weight:700;">
+                        <td style="padding:8px;color:var(--purple);border-radius:6px 0 0 6px;">Month Total</td>
+                        <td style="padding:8px;text-align:right;color:var(--purple);font-variant-numeric:tabular-nums;">₹${Math.round(monthRev).toLocaleString('en-IN')}</td>
+                        <td style="padding:8px;text-align:right;color:${monthProfit >= 0 ? 'var(--green)' : 'var(--red)'};font-variant-numeric:tabular-nums;">₹${Math.round(monthProfit).toLocaleString('en-IN')}</td>
+                        <td style="padding:8px;text-align:right;color:${monthMargin > 40 ? 'var(--green)' : monthMargin > 20 ? 'var(--gold)' : 'var(--red)'};">${monthMargin.toFixed(0)}%</td>
+                        <td style="padding:8px;text-align:right;color:var(--purple);border-radius:0 6px 6px 0;">${monthOrders.toLocaleString()}</td>
+                    </tr>
                 </tbody>
             </table>
         `;
