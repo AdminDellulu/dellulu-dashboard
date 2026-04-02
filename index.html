@@ -956,10 +956,13 @@
                         <div class="chart-inner" style="height:260px;"><canvas id="growthTrajectoryChart"></canvas></div>
                     </div>
 
-                    <!-- Row 3: Cash Flow Waterfall (full width chart) -->
-                    <div class="chart-box">
-                        <div class="chart-title" style="margin-bottom:14px">Cash Flow Waterfall</div>
-                        <div class="chart-inner" style="height:300px;"><canvas id="waterfallChart"></canvas></div>
+                    <!-- Row 3: Cash Flow Waterfall Table + Cash Position (original v7 layout) -->
+                    <div class="grid-3-1">
+                        <div class="chart-box">
+                            <div class="chart-title" style="margin-bottom:14px">Cash Flow Waterfall</div>
+                            <div id="waterfallTable"></div>
+                        </div>
+                        <div class="chart-box" id="cashFlowReality"></div>
                     </div>
 
                     <!-- Row 4: Ad Efficiency (1/2) + Shipping Health (1/2) -->
@@ -2219,10 +2222,64 @@
             </div>
         `;
 
-        // Waterfall Chart
+        // Cash Flow Waterfall Table (original v7 style)
         const totalCOGS = sum(data,'cogs'), totalGST = sum(data,'gst'), totalPkg = sum(data,'pkg');
         const totalShip = sum(data,'ship'), totalGW = sum(data,'gw');
-        renderWaterfallChart({data: data.map(d=>({rev:d.rev,cogs:d.cogs,adSpend:d.adSpend,ship:d.ship,gst:d.gst,pkg:d.pkg,gw:d.gw,profit:d.profit}))});
+        const netProfit = totalProfit;
+        document.getElementById('waterfallTable').innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="border-bottom:2px solid var(--border);"><th style="text-align:left;padding:8px 10px;color:var(--text-sec);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Component</th><th style="text-align:right;padding:8px 10px;color:var(--text-sec);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Amount</th><th style="text-align:right;padding:8px 10px;color:var(--text-sec);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Running Total</th></tr></thead>
+            <tbody>
+                <tr style="background:rgba(5,150,105,0.04);"><td style="padding:10px;font-weight:700;color:var(--text);">Revenue (Gross)</td><td style="text-align:right;padding:10px;font-weight:700;color:var(--green);">${fmtR(totalRev)}</td><td style="text-align:right;padding:10px;font-weight:600;">${fmtR(totalRev)}</td></tr>
+                <tr><td style="padding:10px;color:var(--text);">− COGS</td><td style="text-align:right;padding:10px;color:var(--red);">${fmtR(totalCOGS)}</td><td style="text-align:right;padding:10px;">${fmtR(totalRev-totalCOGS)}</td></tr>
+                <tr><td style="padding:10px;color:var(--text);">− Ad Spend</td><td style="text-align:right;padding:10px;color:var(--red);">${fmtR(totalAdSpend)}</td><td style="text-align:right;padding:10px;">${fmtR(totalRev-totalCOGS-totalAdSpend)}</td></tr>
+                <tr><td style="padding:10px;color:var(--text);">− Shipping</td><td style="text-align:right;padding:10px;color:var(--red);">${fmtR(totalShip)}</td><td style="text-align:right;padding:10px;">${fmtR(totalRev-totalCOGS-totalAdSpend-totalShip)}</td></tr>
+                <tr><td style="padding:10px;color:var(--text);">− GST</td><td style="text-align:right;padding:10px;color:var(--red);">${fmtR(totalGST)}</td><td style="text-align:right;padding:10px;">${fmtR(totalRev-totalCOGS-totalAdSpend-totalShip-totalGST)}</td></tr>
+                <tr><td style="padding:10px;color:var(--text);">− Packaging</td><td style="text-align:right;padding:10px;color:var(--red);">${fmtR(totalPkg)}</td><td style="text-align:right;padding:10px;">${fmtR(totalRev-totalCOGS-totalAdSpend-totalShip-totalGST-totalPkg)}</td></tr>
+                <tr><td style="padding:10px;color:var(--text);">− Gateway Fees</td><td style="text-align:right;padding:10px;color:var(--red);">${fmtR(totalGW)}</td><td style="text-align:right;padding:10px;">${fmtR(totalRev-totalCOGS-totalAdSpend-totalShip-totalGST-totalPkg-totalGW)}</td></tr>
+                <tr style="border-top:2px solid var(--border);background:${netProfit>=0?'rgba(5,150,105,0.06)':'rgba(248,113,113,0.06)'};"><td style="padding:10px;font-weight:700;color:var(--text);">Net Profit</td><td style="text-align:right;padding:10px;font-weight:700;color:${netProfit>=0?'var(--green)':'var(--red)'};">${fmtR(netProfit)}</td><td style="text-align:right;padding:10px;font-weight:700;color:${netProfit>=0?'var(--green)':'var(--red)'};">${fmtR(netProfit)}</td></tr>
+            </tbody>
+        </table>`;
+
+        // Cash Flow Reality (cash position widget)
+        const cashPrepaid = sum(data,'cashPrepaid') || (totalPrepaid > 0 ? totalRev * (totalPrepaid/(totalCOD+totalPrepaid+0.01)) : 0);
+        const cashCOD = sum(data,'cashCOD');
+        const codRevenue = totalCOD > 0 ? totalRev * (totalCOD/(totalCOD+totalPrepaid+0.01)) : 0;
+        const codPending = Math.max(0, codRevenue - cashCOD);
+        const totalCashIn = cashPrepaid + cashCOD;
+        const totalCashOut = totalCOGS + totalAdSpend + totalShip + totalPkg;
+        const netCashPosition = totalCashIn - totalCashOut;
+        const codPct = totalOrders > 0 ? (totalCOD/totalOrders*100).toFixed(0) : 0;
+
+        document.getElementById('cashFlowReality').innerHTML = `
+            <div class="chart-title" style="margin-bottom:14px">💰 Cash Position</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+                    <span style="color:var(--text-sec);font-size:12px;">Prepaid Collected</span>
+                    <span style="font-weight:600;color:var(--green);">${fmtR(cashPrepaid)}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+                    <span style="color:var(--text-sec);font-size:12px;">COD Collected</span>
+                    <span style="font-weight:600;color:var(--green);">${fmtR(cashCOD)}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+                    <span style="color:var(--text-sec);font-size:12px;">COD Pending</span>
+                    <span style="font-weight:600;color:var(--gold);">${fmtR(codPending)}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+                    <span style="color:var(--text-sec);font-size:12px;">Total Cash In</span>
+                    <span style="font-weight:700;color:var(--text);">${fmtR(totalCashIn)}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+                    <span style="color:var(--text-sec);font-size:12px;">Total Cash Out</span>
+                    <span style="font-weight:700;color:var(--red);">${fmtR(totalCashOut)}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:10px;border-radius:8px;background:${netCashPosition>=0?'rgba(5,150,105,0.08)':'rgba(248,113,113,0.08)'};">
+                    <span style="font-weight:700;color:var(--text);">Net Cash Position</span>
+                    <span style="font-weight:800;font-size:16px;color:${netCashPosition>=0?'var(--green)':'var(--red)'};">${fmtR(netCashPosition)}</span>
+                </div>
+                <div style="font-size:11px;color:var(--text-sec);margin-top:4px;">COD mix: ${codPct}% · Pending collection impacts working capital</div>
+            </div>
+        `;
 
         renderRevenueOrdersChart(data, dur);
         renderPaymentMixChart(totalCOD, totalPrepaid);
