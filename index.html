@@ -12,6 +12,10 @@
 
         :root {
             --purple: #7c3aed;
+            --purple-deep: #3b3de7;
+            --purple-grad: linear-gradient(135deg, #3b3de7, #8b5cf6);
+            --purple-grad-h: linear-gradient(90deg, #3b3de7, #8b5cf6);
+            --purple-grad-btn: linear-gradient(135deg, #3b3de7 0%, #7c3aed 50%, #8b5cf6 100%);
             --teal: #06d6a0;
             --pink: #ec4899;
             --gold: #f59e0b;
@@ -51,9 +55,9 @@
             --surface-2: #242938;
             --text: #f1f5f9;
             --text-sec: #94a3b8;
-            --border: rgba(168, 85, 247, 0.12);
+            --border: rgba(59, 61, 231, 0.12);
             --sidebar-bg: #141822;
-            --glow: 0 0 20px rgba(168, 85, 247, 0.15);
+            --glow: 0 0 20px rgba(59, 61, 231, 0.15);
         }
 
         body {
@@ -77,7 +81,7 @@
 
         .sidebar-brand {
             padding: 20px 16px; font-size: 20px; font-weight: 800;
-            background: linear-gradient(135deg, var(--purple), var(--teal));
+            background: var(--purple-grad);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             background-clip: text; white-space: nowrap; letter-spacing: -0.5px;
         }
@@ -91,7 +95,7 @@
         .nav-item:hover { background: rgba(var(--purple-rgb), 0.08); color: var(--purple); }
         .nav-item.active {
             background: rgba(var(--purple-rgb), 0.12); color: var(--purple);
-            border-left: 3px solid var(--purple); padding-left: 13px;
+            border-left: 3px solid transparent; border-image: var(--purple-grad) 1; padding-left: 13px;
         }
         .nav-label { white-space: nowrap; }
         .sidebar.collapsed .nav-label { display: none; }
@@ -152,7 +156,7 @@
             transition: 0.2s; white-space: nowrap; font-family: inherit;
         }
         .tab-button:hover { color: var(--text); background: rgba(var(--purple-rgb), 0.05); }
-        .tab-button.active { color: #fff; background: var(--purple); box-shadow: 0 2px 8px rgba(var(--purple-rgb), 0.3); }
+        .tab-button.active { color: #fff; background: var(--purple-grad-btn); box-shadow: 0 2px 8px rgba(var(--purple-rgb), 0.3); }
 
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
@@ -171,10 +175,10 @@
 
         .kpi-card::before {
             content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-            background: linear-gradient(90deg, var(--accent), transparent);
+            background: linear-gradient(90deg, var(--accent-start, var(--accent)), var(--accent-end, transparent));
         }
         /* Edit 1: Clean white backgrounds with subtle accent bar and minimal tint */
-        .kpi-card.purple { --accent: var(--purple); background: rgba(var(--purple-rgb), 0.03); border-color: rgba(var(--purple-rgb), 0.12); }
+        .kpi-card.purple { --accent: var(--purple); --accent-start: #3b3de7; --accent-end: #8b5cf6; background: rgba(var(--purple-rgb), 0.03); border-color: rgba(var(--purple-rgb), 0.12); }
         .kpi-card.teal { --accent: var(--teal); background: rgba(var(--teal-rgb), 0.03); border-color: rgba(var(--teal-rgb), 0.12); }
         .kpi-card.green { --accent: var(--green); background: rgba(var(--green-rgb), 0.03); border-color: rgba(var(--green-rgb), 0.12); }
         .kpi-card.gold { --accent: var(--gold); background: rgba(var(--gold-rgb), 0.03); border-color: rgba(var(--gold-rgb), 0.12); }
@@ -825,7 +829,7 @@
             border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 600;
             color: var(--text-sec); transition: 0.15s;
         }
-        .mobile-more-option:hover, .mobile-more-option.active { background: rgba(var(--purple-rgb), 0.08); color: var(--purple); }
+        .mobile-more-option:hover, .mobile-more-option.active { background: linear-gradient(135deg, rgba(59,61,231,0.08), rgba(139,92,246,0.08)); color: var(--purple); }
         .mobile-more-option .nav-icon { font-size: 18px; width: 22px; text-align: center; }
         .mobile-more-backdrop { display: none; position: fixed; inset: 0; z-index: 99; }
         .mobile-more-backdrop.open { display: block; }
@@ -2070,6 +2074,14 @@
         purple:'#7c3aed', teal:'#06d6a0', green:'#059669', gold:'#f59e0b',
         pink:'#ec4899', red:'#f87171', orange:'#f97316', orangeWarm:'#d97706', blue:'#3b82f6', indigo:'#6366f1', amber:'#f59e0b', grey:'#cbd5e1',
     };
+    // Gradient helper for Chart.js — creates a vertical gradient for bar/area fills
+    function purpleGrad(ctx, chartArea, alpha) {
+        if (!chartArea) return C.purple;
+        const g = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
+        g.addColorStop(0, `rgba(59,61,231,${alpha||0.6})`);
+        g.addColorStop(1, `rgba(139,92,246,${alpha||0.6})`);
+        return g;
+    }
 
     function chartDefaults() {
         const isDark = document.body.classList.contains('dark-mode');
@@ -2355,7 +2367,7 @@
             data: {
                 labels: data.map(d => getChartLabel(d, dur)),
                 datasets: [
-                    { label: 'Revenue (₹)', data: data.map(d => d.rev), backgroundColor: C.purple, borderRadius: 6, yAxisID: 'y' },
+                    { label: 'Revenue (₹)', data: data.map(d => d.rev), backgroundColor: function(context) { const chart = context.chart; const {ctx: c, chartArea} = chart; return purpleGrad(c, chartArea, 0.7); }, borderRadius: 6, yAxisID: 'y' },
                     { label: 'Orders', data: data.map(d => d.orders), type: 'line', borderColor: B.teal, borderWidth: 2, tension: 0.4, yAxisID: 'y1', pointRadius: 2, pointBackgroundColor: B.teal }
                 ]
             },
