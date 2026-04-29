@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dellulu Finance Command Center v7.4 — LIVE</title>
+    <title>Dellulu Finance Command Center v7.6 — LIVE</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -1004,6 +1004,12 @@
         .inv-field input,.inv-field select,.inv-field textarea{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;}
         .inv-field input:focus,.inv-field select:focus,.inv-field textarea:focus{outline:none;border-color:var(--purple);box-shadow:0 0 0 3px rgba(var(--purple-rgb),0.1);}
         .inv-field-help{font-size:10px;color:var(--text-sec);margin-top:4px;}
+        .prod-subtabs{display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);padding:0;}
+        .prod-subtab{padding:10px 20px;font-size:13px;font-weight:600;color:var(--text-sec);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all 0.2s;background:none;border-top:none;border-left:none;border-right:none;white-space:nowrap;}
+        .prod-subtab:hover{color:var(--text);background:rgba(var(--purple-rgb),0.04);}
+        .prod-subtab.active{color:var(--purple);border-bottom-color:var(--purple);}
+        .prod-sub-content{display:none;}
+        .prod-sub-content.active{display:block;}
         .inv-info-banner{margin-bottom:14px;padding:12px 16px;background:rgba(var(--blue-rgb),0.06);border:1px solid rgba(var(--blue-rgb),0.2);color:var(--blue);border-radius:12px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:8px;}
         .inv-alert-banner{margin-bottom:14px;padding:12px 16px;background:rgba(var(--red-rgb),0.06);border:1px solid rgba(var(--red-rgb),0.2);color:var(--red);border-radius:12px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px;}
         .inv-table-wrap{background:var(--surface);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04);margin-bottom:16px;overflow:hidden;}
@@ -1042,7 +1048,7 @@
                 <div class="nav-item" data-tab="strategy"><div class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center;color:var(--purple);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="9"/></svg></div><div class="nav-label">Strategy</div></div>
                 <div class="nav-item" data-tab="uniteconomics"><div class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center;color:var(--purple);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m6.08 0l4.24-4.24M1 12h6m6 0h6m-1.78 7.78l-4.24-4.24m-6.08 0l-4.24 4.24"/></svg></div><div class="nav-label">Unit Economics</div></div>
             </div>
-            <div class="sidebar-version">v7.4.0 — LIVE</div>
+            <div class="sidebar-version">v7.6.0 — LIVE</div>
         </div>
 
         <!-- MAIN -->
@@ -1140,6 +1146,15 @@
 
                 <!-- ===== PRODUCTS ===== -->
                 <div class="tab-content" id="products">
+                    <!-- Product Sub-Tab Navigation -->
+                    <div class="prod-subtabs" id="prodSubtabs">
+                        <button class="prod-subtab active" data-sub="overview" onclick="switchProductSub('overview')">Overview</button>
+                        <button class="prod-subtab" data-sub="inventory" onclick="switchProductSub('inventory')">Inventory</button>
+                        <button class="prod-subtab" data-sub="pipeline" onclick="switchProductSub('pipeline')">Pipeline</button>
+                    </div>
+
+                    <!-- SUB-TAB: Overview -->
+                    <div class="prod-sub-content active" id="prodSubOverview">
                     <div class="kpi-row" id="productsKPIs"></div>
                     <!-- Edit 2: Negative metrics panel -->
                     <div id="productNegativeMetrics"></div>
@@ -1165,8 +1180,11 @@
                         </div>
                     </div>
 
-                    <!-- ═══ RESEARCH SUBSECTION ═══ -->
-                    <div style="margin:32px 0 16px;border-top:2px solid var(--border);padding-top:20px;border-left:3px solid var(--purple);padding-left:12px;margin-left:-3px;">
+                    </div><!-- /prodSubOverview -->
+
+                    <!-- SUB-TAB: Pipeline -->
+                    <div class="prod-sub-content" id="prodSubPipeline">
+                    <div style="margin:0 0 16px;border-left:3px solid var(--purple);padding-left:12px;">
                         <div style="font-size:16px;font-weight:700;color:var(--text);">Product Research Pipeline</div>
                         <div style="font-size:12px;color:var(--text-sec);margin-top:4px;">Discover, evaluate, and prioritize new product opportunities</div>
                     </div>
@@ -1226,10 +1244,11 @@
                             </div>
                         </div>
                     </div>
-                </div>
+                    </div><!-- /prodSubPipeline -->
 
-                <!-- ═══════════ INVENTORY MODULE ═══════════ -->
-                <div id="inventoryModule" style="margin-top:32px;">
+                    <!-- SUB-TAB: Inventory -->
+                    <div class="prod-sub-content" id="prodSubInventory">
+                <div id="inventoryModule">
                     <div class="inv-section-header">
                         <div class="inv-section-title">
                             <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:var(--purple);fill:none;stroke-width:2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
@@ -1362,6 +1381,8 @@
                         <div id="invReturnsList" style="font-size:12px;"></div>
                     </div>
                 </div>
+                    </div><!-- /prodSubInventory -->
+                </div><!-- /products -->
 
                 <!-- ===== ADS ===== -->
                 <div class="tab-content" id="ads">
@@ -3096,11 +3117,21 @@
             });
         }
 
-        // Render research subsection
-        renderResearch();
+        // Sub-tab content rendered lazily via switchProductSub
+    }
 
-        // Render inventory module
-        renderInventory();
+    // Product sub-tab switching
+    let _prodSubActive = 'overview';
+    let _prodSubRendered = { overview: false, pipeline: false, inventory: false };
+    function switchProductSub(sub) {
+        _prodSubActive = sub;
+        document.querySelectorAll('.prod-subtab').forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
+        document.querySelectorAll('.prod-sub-content').forEach(d => d.classList.remove('active'));
+        const target = document.getElementById('prodSub' + sub.charAt(0).toUpperCase() + sub.slice(1));
+        if (target) target.classList.add('active');
+        // Lazy render on first visit
+        if (sub === 'pipeline' && !_prodSubRendered.pipeline) { renderResearch(); _prodSubRendered.pipeline = true; }
+        if (sub === 'inventory' && !_prodSubRendered.inventory) { renderInventory(); _prodSubRendered.inventory = true; }
     }
 
     function renderProductHealth(pp) {
