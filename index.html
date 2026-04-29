@@ -6624,26 +6624,25 @@
             { key:'product', primary:{ field:'product', label:'Product' } },
             { key:'phys', primary:{ field:'phys', label:'Opening Stock', edit:true, align:'right' } },
             { key:'returns', label:'Returns', collapsible:true,
-              primary:{ field:'returnsRecv', label:'QC Pass', edit:true, align:'right' },
-              secondary:[ { field:'damaged',label:'Damaged',align:'right' }, { field:'returnRate',label:'Return %',align:'right' } ] },
+              primary:{ field:'returnsRecv', label:'Returns', edit:true, align:'right' },
+              secondary:[ { field:'damaged',label:'Damaged',align:'right' }, { field:'returnRate',label:'Damage %',align:'right' } ] },
             { key:'net', primary:{ field:'net', label:'Net Inventory', align:'right', bold:true } },
-            { key:'pricing', label:'Pricing', collapsible:true,
+            { key:'sellPrice', primary:{ field:'sellPrice', label:'Sell Price', align:'right' } },
+            { key:'cogs', primary:{ field:'cogs', label:'COGS', align:'right' } },
+            { key:'pricing', label:'Margin', collapsible:true,
               primary:{ field:'margin', label:'Margin %', align:'right', bold:true },
-              secondary:[ { field:'cogs',label:'COGS',align:'right' }, { field:'sellPrice',label:'Sell Price',align:'right' } ] },
-            { key:'value', label:'Inv Value', collapsible:true,
-              primary:{ field:'invCost', label:'Inv @ Cost', align:'right' },
-              secondary:[ { field:'invRetail',label:'Inv @ Retail',align:'right' } ] },
+              secondary:[ { field:'invCost',label:'Inv @ Cost',align:'right' }, { field:'invRetail',label:'Inv @ Retail',align:'right' } ] },
+            { key:'status', primary:{ field:'status', label:'Status', align:'center' } },
             { key:'velocity', label:'Velocity', collapsible:true,
               primary:{ field:'pertVel', label:'PERT Vel', align:'right', bold:true },
               secondary:[ { field:'v7',label:'7d',align:'right' }, { field:'v14',label:'14d',align:'right' }, { field:'v30',label:'30d',align:'right' } ] },
             { key:'days', label:'Days of Stock', collapsible:true,
               primary:{ field:'daysPert', label:'Days (PERT)', align:'right', bold:true },
               secondary:[ { field:'daysOpt',label:'Optimistic',align:'right' }, { field:'daysLik',label:'Likely',align:'right' }, { field:'daysPess',label:'Pessimistic',align:'right' } ] },
+            { key:'action', primary:{ field:'reorderAlert', label:'Action', align:'center' } },
             { key:'reorder', label:'Reorder', collapsible:true,
               primary:{ field:'reorderQty', label:'Order Qty', align:'right', bold:true },
               secondary:[ { field:'reorderPoint',label:'ROP',align:'right' } ] },
-            { key:'status', primary:{ field:'status', label:'Status', align:'center' } },
-            { key:'action', primary:{ field:'reorderAlert', label:'Action', align:'center' } },
             { key:'movement', label:'Movement', collapsible:true,
               primary:{ field:'movement', label:'Movement', align:'center' },
               secondary:[ { field:'daysSinceSale',label:'Days Since Sale',align:'right' }, { field:'deadStockValue',label:'Dead Stock Val',align:'right' } ] },
@@ -6706,7 +6705,7 @@
                 const batch = [];
                 for (let i=1;i<rows.length;i++) {
                     const r=rows[i]; if (!r[iName]) continue;
-                    const name=(r[iName]||'').trim().replace(/​/g,'');
+                    const name=(r[iName]||'').trim().replace(/​/g,'').replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu,'').trim();
                     const phys=parseInt(r[iPhys])||0;
                     const qcPass=parseInt(r[iQcPass])||0;
                     const dmg=parseInt(r[iDmg])||0;
@@ -6847,18 +6846,18 @@
                 const m = await invSq('master_inventory','?select=id,product_name,product_id,physical_stock,returns_received,restock_qc,damaged,shopify_qty&order=product_name.asc');
                 masters = m.rows||[];
             }
-            const p = await invSq('products','?select=id,name,sku,cost_per_item');
+            const p = await invSq('products','?select=id,name,sku,cost_per_item,sku_price,is_active');
             ST.shopifyProducts = p.rows||[];
             const productsById = new Map(); ST.shopifyProducts.forEach(x => productsById.set(x.id, x));
             const productsByName = new Map(); ST.shopifyProducts.forEach(x => productsByName.set(normName(x.name), x));
             if (masters.length === 0) {
-                ST.products = MASTER_SEED.map((m,i) => { const match=productsByName.get(normName(m.product_name)); return { id:'seed-'+i, master_inventory_id:'seed-'+i, product_id:match?.id||null, name:m.product_name.trim(), product_name:m.product_name, sku:match?.sku||null, cost_per_item:+match?.cost_per_item||0, is_active:true, _matched:!!match, _seedQty:m.physical_stock, _physStock:m.physical_stock, _returnsRecv:0 }; });
+                ST.products = MASTER_SEED.map((m,i) => { const match=productsByName.get(normName(m.product_name)); return { id:'seed-'+i, master_inventory_id:'seed-'+i, product_id:match?.id||null, name:m.product_name.trim(), product_name:m.product_name, sku:match?.sku||null, cost_per_item:+match?.cost_per_item||0, _shopifySellPrice:+match?.sku_price||0, is_active:true, _matched:!!match, _seedQty:m.physical_stock, _physStock:m.physical_stock, _returnsRecv:0 }; });
             } else {
                 ST.products = masters.map(m => {
                     const linked = m.product_id ? productsById.get(m.product_id) : null;
                     const nameMatch = !linked ? productsByName.get(normName(m.product_name)) : null;
                     const match = linked || nameMatch;
-                    return { id:m.id, master_inventory_id:m.id, product_id:m.product_id||null, name:(m.product_name||'').trim(), product_name:m.product_name, sku:match?.sku||null, cost_per_item:+match?.cost_per_item||0, is_active:true, _matched:!!match, _physStock:+m.physical_stock||0, _returnsRecv:+m.returns_received||0, _restockQc:+m.restock_qc||0, _damaged:+m.damaged||0, _shopifyQty:m.shopify_qty };
+                    return { id:m.id, master_inventory_id:m.id, product_id:m.product_id||match?.id||null, name:(m.product_name||'').trim(), product_name:m.product_name, sku:match?.sku||null, cost_per_item:+match?.cost_per_item||0, _shopifySellPrice:+match?.sku_price||0, is_active:true, _matched:!!match, _physStock:+m.physical_stock||0, _returnsRecv:+m.returns_received||0, _restockQc:+m.restock_qc||0, _damaged:+m.damaged||0, _shopifyQty:m.shopify_qty };
                 });
             }
         }
@@ -6964,10 +6963,10 @@
                 const totalReturns=returnsRecv+damaged;
                 const returnRate=totalReturns>0?(damaged/totalReturns)*100:null;
                 const cogs=+p.cost_per_item||0;
-                const sellAgg=ST.perProductSell[p.product_id];
-                const sellPrice=(sellAgg&&sellAgg.sumQ>0)?(sellAgg.sumPxQ/sellAgg.sumQ):0;
-                const margin=sellPrice>0?((sellPrice-cogs)/sellPrice)*100:null;
-                const invCost=net*cogs; const invRetail=sellPrice>0?net*sellPrice:net*cogs*3;
+                // Sell price from Shopify sku_price; blank for non-Shopify products
+                const sellPrice=+p._shopifySellPrice||0;
+                const margin=(sellPrice>0&&cogs>0)?((sellPrice-cogs)/sellPrice)*100:null;
+                const invCost=net*cogs; const invRetail=sellPrice>0?net*sellPrice:0;
                 const v=computeVelocityFor(p.product_id);
                 const daysPert=v.pert>0?net/v.pert:null; const daysOpt=v.pess>0?net/v.pess:null;
                 const daysLik=v.median>0?net/v.median:null; const daysPess=v.opt>0?net/v.opt:null;
@@ -6998,9 +6997,9 @@
                 case 'product':return null; case 'phys':return{type:'input',val:r.phys}; case 'returnsRecv':return{type:'input',val:r.returnsRecv};
                 case 'damaged':return{type:'plain',val:r.damaged||0};
                 case 'returnRate':return{type:'plain',val:r.returnRate==null?'–':fmtN(r.returnRate,1)+'%'}; case 'net':return{type:'plain',val:'<b>'+r.net+'</b>' + (r.net>0?'<span class="inv-multistore-icon" title="Warehouse-level stock · Multi-store split not yet tracked">⊞</span>':'')};
-                case 'cogs':return{type:'plain',val:fmtR(r.cogs)}; case 'sellPrice':return{type:'plain',val:r.sellPrice>0?fmtR(r.sellPrice):'–'};
-                case 'margin':return{type:'plain',val:r.margin==null?'–':'<b>'+fmtN(r.margin,1)+'%</b>'}; case 'invCost':return{type:'plain',val:fmtR(r.invCost)};
-                case 'invRetail':return{type:'plain',val:fmtR(r.invRetail)}; case 'v7':return{type:'plain',val:fmtN(r.v7,1)}; case 'v14':return{type:'plain',val:fmtN(r.v14,1)};
+                case 'cogs':return{type:'plain',val:r.cogs>0?fmtR(r.cogs):'–'}; case 'sellPrice':return{type:'plain',val:r.sellPrice>0?fmtR(r.sellPrice):'–'};
+                case 'margin':return{type:'plain',val:r.margin==null?'–':'<b>'+fmtN(r.margin,1)+'%</b>'}; case 'invCost':return{type:'plain',val:r.invCost>0?fmtR(r.invCost):'–'};
+                case 'invRetail':return{type:'plain',val:r.invRetail>0?fmtR(r.invRetail):'–'}; case 'v7':return{type:'plain',val:fmtN(r.v7,1)}; case 'v14':return{type:'plain',val:fmtN(r.v14,1)};
                 case 'v30':return{type:'plain',val:fmtN(r.v30,1)}; case 'pertVel':return{type:'plain',val:'<b>'+fmtN(r.pertVel,1)+'</b>'};
                 case 'daysOpt':return{type:'plain',val:fmtI(r.daysOpt)}; case 'daysLik':return{type:'plain',val:fmtI(r.daysLik)};
                 case 'daysPess':return{type:'plain',val:fmtI(r.daysPess)}; case 'daysPert':return{type:'plain',val:'<b>'+fmtI(r.daysPert)+'</b>'};
