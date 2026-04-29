@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dellulu Finance Command Center v7.6 — LIVE</title>
+    <title>Dellulu Finance Command Center v7.7 — LIVE</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -1010,6 +1010,30 @@
         .prod-subtab.active{color:var(--purple);border-bottom-color:var(--purple);}
         .prod-sub-content{display:none;}
         .prod-sub-content.active{display:block;}
+        .inv-src-tag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-right:4px;vertical-align:middle;}
+        .inv-src-tag.shopify{background:rgba(var(--green-rgb),0.12);color:var(--green);}
+        .inv-src-tag.sheet{background:rgba(var(--blue-rgb),0.12);color:var(--blue);}
+        .inv-src-tag.unmapped{background:rgba(var(--gold-rgb,180,130,20),0.12);color:#b48214;}
+        .inv-map-btn{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:600;cursor:pointer;background:rgba(var(--purple-rgb),0.1);color:var(--purple);border:1px solid rgba(var(--purple-rgb),0.2);margin-left:4px;}
+        .inv-map-btn:hover{background:rgba(var(--purple-rgb),0.2);}
+        .inv-sync-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;background:rgba(var(--green-rgb),0.1);color:var(--green);margin-left:8px;}
+        .inv-sync-badge.stale{background:rgba(var(--gold-rgb,180,130,20),0.1);color:#b48214;}
+        .inv-mapping-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:none;justify-content:center;align-items:center;}
+        .inv-mapping-overlay.active{display:flex;}
+        .inv-mapping-modal{background:var(--card);border-radius:16px;width:90%;max-width:700px;max-height:85vh;overflow-y:auto;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
+        .inv-mapping-modal h3{margin:0 0 16px;font-size:16px;font-weight:700;}
+        .inv-map-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;margin-bottom:8px;background:rgba(var(--purple-rgb),0.03);border:1px solid var(--border);}
+        .inv-map-row .sheet-name{flex:1;font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .inv-map-row select{flex:1;padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:12px;background:var(--card);color:var(--text);}
+        .inv-map-row .confidence{font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;white-space:nowrap;}
+        .inv-map-row .confidence.high{background:rgba(var(--green-rgb),0.12);color:var(--green);}
+        .inv-map-row .confidence.medium{background:rgba(var(--gold-rgb,180,130,20),0.12);color:#b48214;}
+        .inv-map-row .confidence.low{background:rgba(var(--red-rgb),0.12);color:var(--red);}
+        .inv-map-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
+        .inv-map-actions button{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;}
+        .inv-map-actions .btn-save{background:var(--purple);color:#fff;}
+        .inv-map-actions .btn-cancel{background:var(--bg-sec);color:var(--text-sec);}
+        .inv-toolbar-right{display:flex;align-items:center;gap:8px;margin-left:auto;}
         .inv-info-banner{margin-bottom:14px;padding:12px 16px;background:rgba(var(--blue-rgb),0.06);border:1px solid rgba(var(--blue-rgb),0.2);color:var(--blue);border-radius:12px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:8px;}
         .inv-alert-banner{margin-bottom:14px;padding:12px 16px;background:rgba(var(--red-rgb),0.06);border:1px solid rgba(var(--red-rgb),0.2);color:var(--red);border-radius:12px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px;}
         .inv-table-wrap{background:var(--surface);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04);margin-bottom:16px;overflow:hidden;}
@@ -1048,7 +1072,7 @@
                 <div class="nav-item" data-tab="strategy"><div class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center;color:var(--purple);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="9"/></svg></div><div class="nav-label">Strategy</div></div>
                 <div class="nav-item" data-tab="uniteconomics"><div class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center;color:var(--purple);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m6.08 0l4.24-4.24M1 12h6m6 0h6m-1.78 7.78l-4.24-4.24m-6.08 0l-4.24 4.24"/></svg></div><div class="nav-label">Unit Economics</div></div>
             </div>
-            <div class="sidebar-version">v7.6.0 — LIVE</div>
+            <div class="sidebar-version">v7.7.0 — LIVE</div>
         </div>
 
         <!-- MAIN -->
@@ -1254,10 +1278,16 @@
                             <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:var(--purple);fill:none;stroke-width:2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                             Inventory Management
                         </div>
-                        <div style="font-size:11px;color:var(--text-sec);margin-top:2px;">PERT velocity model &middot; 62 SKUs &middot; Real-time stock health</div>
+                        <div style="font-size:11px;color:var(--text-sec);margin-top:2px;">PERT velocity model &middot; Google Sheet linked &middot; Real-time stock health</div>
                     </div>
 
-                    <div id="invModeBadge" style="margin-bottom:12px;"><span class="badge badge-local" id="invBadge">loading...</span> <span style="color:var(--text-sec);font-size:11px;" id="invSyncTime"></span></div>
+                    <div id="invModeBadge" style="margin-bottom:12px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
+                        <span class="badge badge-local" id="invBadge">loading...</span>
+                        <span style="color:var(--text-sec);font-size:11px;" id="invSyncTime"></span>
+                        <div class="inv-toolbar-right">
+                            <button class="inv-map-btn" id="invMapBtn" onclick="INV.openMapping()" style="display:none">Map Products</button>
+                        </div>
+                    </div>
 
                     <div class="inv-info-banner" id="invInfoBanner" style="display:none">
                         <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--blue);fill:none;stroke-width:2;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -1334,6 +1364,11 @@
                             </tr></thead><tbody id="invReorderBody"></tbody></table>
                         </div>
                     </div>
+                </div>
+
+                <!-- Inventory Mapping Overlay -->
+                <div class="inv-mapping-overlay" id="invMappingOverlay">
+                    <div class="inv-mapping-modal" id="invMappingModal"></div>
                 </div>
 
                 <!-- Inventory Drawers (outside tab content for z-index) -->
@@ -6612,6 +6647,128 @@
             }
         }
 
+        // ── Google Sheet Live Sync ──
+        const SHEET_ID = '1MgAq6Gg2LHjnsI3in8X5kAKPp0GOLxuiJy9iVUvgq7E';
+        const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Inventory`;
+
+        async function syncFromSheet() {
+            try {
+                const res = await fetch(SHEET_CSV_URL);
+                if (!res.ok) { console.warn('[inv] Sheet fetch failed:', res.status); ST.sheetSyncStatus='error'; return; }
+                const csv = await res.text();
+                const rows = parseCSV(csv);
+                if (rows.length < 2) { ST.sheetSyncStatus='empty'; return; }
+                // Parse header
+                const hdr = rows[0].map(h=>(h||'').trim().toLowerCase());
+                const iName=hdr.findIndex(h=>h.includes('product'));
+                const iPhys=hdr.findIndex(h=>h.includes('physical'));
+                const iRet=hdr.findIndex(h=>h.includes('return'));
+                if (iName<0||iPhys<0) { console.warn('[inv] Sheet missing columns'); ST.sheetSyncStatus='bad_format'; return; }
+                // Build upsert batch
+                const batch = [];
+                for (let i=1;i<rows.length;i++) {
+                    const r=rows[i]; if (!r[iName]) continue;
+                    const name=(r[iName]||'').trim().replace(/​/g,'');
+                    const phys=parseInt(r[iPhys])||0;
+                    const ret=iRet>=0?parseInt(r[iRet])||0:0;
+                    if (!name) continue;
+                    batch.push({product_name:name,physical_stock:phys,returns_received:ret});
+                }
+                // Upsert to master_inventory
+                if (batch.length>0 && ST.hasSupabaseTables.master) {
+                    for (const b of batch) {
+                        try {
+                            const existing = await invSq('master_inventory',`?product_name=eq.${encodeURIComponent(b.product_name)}&select=id`);
+                            if (existing.rows && existing.rows.length>0) {
+                                await fetch(`${SUPABASE_URL}/rest/v1/master_inventory?id=eq.${existing.rows[0].id}`, {method:'PATCH',headers:{...HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({physical_stock:b.physical_stock,returns_received:b.returns_received})});
+                            } else {
+                                await fetch(`${SUPABASE_URL}/rest/v1/master_inventory`, {method:'POST',headers:{...HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({product_name:b.product_name,physical_stock:b.physical_stock,returns_received:b.returns_received,brand_id:'dellulu'})});
+                            }
+                        } catch(e) { console.warn('[inv] Upsert failed for',b.product_name,e); }
+                    }
+                }
+                ST.sheetSyncStatus='ok'; ST.sheetSyncTime=new Date();
+                ST.sheetRowCount=batch.length;
+            } catch(e) { console.warn('[inv] Sheet sync error:',e); ST.sheetSyncStatus='error'; }
+        }
+
+        function parseCSV(text) {
+            const rows=[]; let row=[]; let cell=''; let inQ=false;
+            for (let i=0;i<text.length;i++) {
+                const c=text[i];
+                if (inQ) { if (c==='"'&&text[i+1]==='"'){cell+='"';i++;} else if (c==='"'){inQ=false;} else {cell+=c;} }
+                else { if (c==='"'){inQ=true;} else if (c===','){row.push(cell);cell='';} else if (c==='\n'||c==='\r'){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell);if(row.some(c=>c.trim()))rows.push(row);row=[];cell='';} else {cell+=c;} }
+            }
+            if (cell||row.length) { row.push(cell); if(row.some(c=>c.trim())) rows.push(row); }
+            return rows;
+        }
+
+        // ── Fuzzy Matching ──
+        function fuzzyScore(a, b) {
+            const na=normFuzzy(a), nb=normFuzzy(b);
+            if (na===nb) return 1.0;
+            if (na.includes(nb)||nb.includes(na)) return 0.85;
+            // Dice coefficient on bigrams
+            const biA=bigrams(na), biB=bigrams(nb);
+            if (biA.size===0||biB.size===0) return 0;
+            let inter=0; biA.forEach(b=>{ if (biB.has(b)) inter++; });
+            return (2*inter)/(biA.size+biB.size);
+        }
+        function normFuzzy(s) { return (s||'').toLowerCase().replace(/[™®©|()]/g,'').replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').trim(); }
+        function bigrams(s) { const set=new Set(); for (let i=0;i<s.length-1;i++) set.add(s.slice(i,i+2)); return set; }
+
+        function findBestMatches(sheetName, shopifyProducts, topN=3) {
+            const scored = shopifyProducts.map(sp=>({product:sp,score:fuzzyScore(sheetName,sp.name)}));
+            scored.sort((a,b)=>b.score-a.score);
+            return scored.slice(0,topN).filter(s=>s.score>0.2);
+        }
+
+        // ── Mapping UI ──
+        function openMappingUI() {
+            const unmapped = ST.products.filter(p=>!p.product_id);
+            const shopify = ST.shopifyProducts||[];
+            if (unmapped.length===0) { alert('All products are already mapped to Shopify!'); return; }
+            let html = `<h3>Map Sheet Products to Shopify (${unmapped.length} unmapped)</h3><div style="max-height:55vh;overflow-y:auto;">`;
+            unmapped.forEach((p,i) => {
+                const matches = findBestMatches(p.name, shopify);
+                const bestScore = matches.length>0?matches[0].score:0;
+                const confCls = bestScore>=0.7?'high':bestScore>=0.4?'medium':'low';
+                const confLabel = bestScore>=0.7?'High':bestScore>=0.4?'Med':'Low';
+                html+=`<div class="inv-map-row" data-inv-map-idx="${i}" data-inv-map-id="${p.id}">`;
+                html+=`<div class="sheet-name" title="${p.name}">${p.name}</div>`;
+                html+=`<span class="confidence ${confCls}">${confLabel} ${Math.round(bestScore*100)}%</span>`;
+                html+=`<select data-inv-map-select="${i}"><option value="">— No match —</option>`;
+                matches.forEach(m=>{ html+=`<option value="${m.product.id}" ${m.score>=0.7?'selected':''}>${m.product.name} (${Math.round(m.score*100)}%)</option>`; });
+                // Also add all shopify products as options
+                shopify.forEach(sp=>{ if (!matches.find(m=>m.product.id===sp.id)) html+=`<option value="${sp.id}">${sp.name}</option>`; });
+                html+=`</select></div>`;
+            });
+            html+=`</div><div class="inv-map-actions"><button class="btn-cancel" onclick="INV.closeMapping()">Cancel</button><button class="btn-save" onclick="INV.saveMapping()">Save Mappings</button></div>`;
+            const modal = document.getElementById('invMappingModal');
+            modal.innerHTML = html;
+            document.getElementById('invMappingOverlay').classList.add('active');
+        }
+
+        function closeMapping() { document.getElementById('invMappingOverlay').classList.remove('active'); }
+
+        async function saveMapping() {
+            const overlay = document.getElementById('invMappingOverlay');
+            const selects = overlay.querySelectorAll('select[data-inv-map-select]');
+            let saved=0;
+            for (const sel of selects) {
+                const row = sel.closest('.inv-map-row');
+                const mid = row.dataset.invMapId;
+                const pid = sel.value;
+                if (!pid||!mid) continue;
+                try {
+                    await fetch(`${SUPABASE_URL}/rest/v1/master_inventory?id=eq.${mid}`, {method:'PATCH',headers:{...HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({product_id:parseInt(pid)})});
+                    saved++;
+                } catch(e) { console.warn('[inv] Save mapping failed',mid,e); }
+            }
+            closeMapping();
+            if (saved>0) { ST.initialized=false; INV.init(); }
+        }
+
         async function checkTables() {
             const [m,s,r] = await Promise.all([invSq('master_inventory','?limit=1'), invSq('inventory_snapshots','?limit=1'), invSq('inventory_returns_log','?limit=1')]);
             ST.hasSupabaseTables.master=!m.__missing; ST.hasSupabaseTables.snapshots=!s.__missing; ST.hasSupabaseTables.returns=!r.__missing;
@@ -6627,15 +6784,22 @@
         async function loadSkus() {
             let masters = [];
             if (ST.hasSupabaseTables.master) {
-                const m = await invSq('master_inventory','?select=id,product_name,sku,is_active&order=product_name.asc');
+                const m = await invSq('master_inventory','?select=id,product_name,product_id,physical_stock,returns_received,restock_qc,damaged,shopify_qty,sku,is_active&order=product_name.asc');
                 masters = (m.rows||[]).filter(x => x.is_active !== false);
             }
             const p = await invSq('products','?select=id,name,sku,cost_per_item');
-            const productsByName = new Map(); (p.rows||[]).forEach(x => productsByName.set(normName(x.name), x));
+            ST.shopifyProducts = p.rows||[];
+            const productsById = new Map(); ST.shopifyProducts.forEach(x => productsById.set(x.id, x));
+            const productsByName = new Map(); ST.shopifyProducts.forEach(x => productsByName.set(normName(x.name), x));
             if (masters.length === 0) {
-                ST.products = MASTER_SEED.map((m,i) => { const match=productsByName.get(normName(m.product_name)); return { id:'seed-'+i, master_inventory_id:'seed-'+i, product_id:match?.id||null, name:m.product_name.trim(), product_name:m.product_name, sku:match?.sku||null, cost_per_item:+match?.cost_per_item||0, is_active:true, _matched:!!match, _seedQty:m.physical_stock }; });
+                ST.products = MASTER_SEED.map((m,i) => { const match=productsByName.get(normName(m.product_name)); return { id:'seed-'+i, master_inventory_id:'seed-'+i, product_id:match?.id||null, name:m.product_name.trim(), product_name:m.product_name, sku:match?.sku||null, cost_per_item:+match?.cost_per_item||0, is_active:true, _matched:!!match, _seedQty:m.physical_stock, _physStock:m.physical_stock, _returnsRecv:0 }; });
             } else {
-                ST.products = masters.map(m => { const match=productsByName.get(normName(m.product_name)); return { id:m.id, master_inventory_id:m.id, product_id:match?.id||null, name:(m.product_name||'').trim(), product_name:m.product_name, sku:m.sku||match?.sku||null, cost_per_item:+match?.cost_per_item||0, is_active:m.is_active!==false, _matched:!!match }; });
+                ST.products = masters.map(m => {
+                    const linked = m.product_id ? productsById.get(m.product_id) : null;
+                    const nameMatch = !linked ? productsByName.get(normName(m.product_name)) : null;
+                    const match = linked || nameMatch;
+                    return { id:m.id, master_inventory_id:m.id, product_id:m.product_id||null, name:(m.product_name||'').trim(), product_name:m.product_name, sku:m.sku||match?.sku||null, cost_per_item:+match?.cost_per_item||0, is_active:m.is_active!==false, _matched:!!match, _physStock:+m.physical_stock||0, _returnsRecv:+m.returns_received||0, _restockQc:+m.restock_qc||0, _damaged:+m.damaged||0, _shopifyQty:m.shopify_qty };
+                });
             }
         }
 
@@ -6679,13 +6843,21 @@
         }
 
         async function loadSnapshots() {
+            // Build snapshots from master_inventory data already loaded in loadSkus
+            ST.snapshots={};
+            ST.products.forEach(p=>{
+                ST.snapshots[p.id]={
+                    master_inventory_id:p.id, snapshot_date:ST.todayIST,
+                    physical_stock:p._physStock||0, returns_received:p._returnsRecv||0,
+                    restockable_qty:p._restockQc||0, damaged_qty:p._damaged||0,
+                    shopify_qty:p._shopifyQty!=null?p._shopifyQty:null
+                };
+            });
+            // Also try loading today's snapshot from snapshots table for any overrides
             if (ST.hasSupabaseTables.snapshots) {
                 const r=await invSq('inventory_snapshots',`?snapshot_date=eq.${ST.todayIST}&select=*`);
-                ST.snapshots={}; (r.rows||[]).forEach(s=>ST.snapshots[s.master_inventory_id]=s); return;
+                (r.rows||[]).forEach(s=>{ if (ST.snapshots[s.master_inventory_id]) Object.assign(ST.snapshots[s.master_inventory_id], s); });
             }
-            ST.snapshots={};
-            ST.products.forEach(p=>{ if (p._seedQty!=null) ST.snapshots[p.id]={master_inventory_id:p.id,snapshot_date:ST.todayIST,physical_stock:p._seedQty,returns_received:0,restockable_qty:0,damaged_qty:0}; });
-            try { const raw=localStorage.getItem('dellulu.inv.snapshots.'+ST.todayIST); if (raw) { const saved=JSON.parse(raw); Object.keys(saved).forEach(k=>{ if (ST.snapshots[k]) ST.snapshots[k]={...ST.snapshots[k],...saved[k]}; }); } } catch {}
         }
 
         async function loadReturns() {
@@ -6946,15 +7118,27 @@
             if (ST.initialized) { rerender(); return; }
             loadConfig(); loadExpand();
             await checkTables();
+            // Sync from Google Sheet first (updates master_inventory)
+            await syncFromSheet();
             await loadSkus();
             await Promise.all([loadVelocityData(), loadAdSpend(), loadSnapshots(), loadReturns()]);
-            document.getElementById('invSyncTime').textContent='synced '+new Date().toLocaleTimeString('en-IN',{hour12:false});
+            // Update sync time display
+            const syncEl = document.getElementById('invSyncTime');
+            if (ST.sheetSyncStatus==='ok') {
+                syncEl.innerHTML='<span class="inv-sync-badge">SHEET LINKED</span> synced '+new Date().toLocaleTimeString('en-IN',{hour12:false})+' · '+ST.sheetRowCount+' SKUs';
+            } else {
+                syncEl.innerHTML='<span class="inv-sync-badge stale">SHEET '+(ST.sheetSyncStatus||'N/A').toUpperCase()+'</span> '+new Date().toLocaleTimeString('en-IN',{hour12:false});
+            }
             ST.initialized=true;
             wireEvents();
             rerender();
+            // Show unmapped count
+            const unmapped = ST.products.filter(p=>!p.product_id).length;
+            const mapBtn = document.getElementById('invMapBtn');
+            if (mapBtn) { mapBtn.textContent=`Map Products (${unmapped})`; if (unmapped===0) mapBtn.style.display='none'; else mapBtn.style.display=''; }
         }
 
-        return { init, rerender, closeDrawers: invCloseDrawers };
+        return { init, rerender, closeDrawers: invCloseDrawers, openMapping: openMappingUI, closeMapping, saveMapping };
     })();
 
     function renderInventory() { INV.init(); }
