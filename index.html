@@ -1014,25 +1014,31 @@
         .inv-src-tag.shopify{background:rgba(var(--green-rgb),0.12);color:var(--green);}
         .inv-src-tag.sheet{background:rgba(var(--blue-rgb),0.12);color:var(--blue);}
         .inv-src-tag.unmapped{background:rgba(var(--gold-rgb,180,130,20),0.12);color:#b48214;}
-        .inv-map-btn{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:600;cursor:pointer;background:rgba(var(--purple-rgb),0.1);color:var(--purple);border:1px solid rgba(var(--purple-rgb),0.2);margin-left:4px;}
-        .inv-map-btn:hover{background:rgba(var(--purple-rgb),0.2);}
+        .inv-map-btn{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;background:rgba(var(--purple-rgb),0.1);color:var(--purple);border:1px solid rgba(var(--purple-rgb),0.2);transition:0.15s;}
+        .inv-map-btn:hover{background:rgba(var(--purple-rgb),0.2);transform:translateY(-1px);}
         .inv-sync-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;background:rgba(var(--green-rgb),0.1);color:var(--green);margin-left:8px;}
         .inv-sync-badge.stale{background:rgba(var(--gold-rgb,180,130,20),0.1);color:#b48214;}
-        .inv-mapping-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:none;justify-content:center;align-items:center;}
+        .inv-mapping-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:10000;display:none;justify-content:center;align-items:center;}
         .inv-mapping-overlay.active{display:flex;}
-        .inv-mapping-modal{background:var(--card);border-radius:16px;width:90%;max-width:700px;max-height:85vh;overflow-y:auto;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
-        .inv-mapping-modal h3{margin:0 0 16px;font-size:16px;font-weight:700;}
-        .inv-map-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;margin-bottom:8px;background:rgba(var(--purple-rgb),0.03);border:1px solid var(--border);}
-        .inv-map-row .sheet-name{flex:1;font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-        .inv-map-row select{flex:1;padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:12px;background:var(--card);color:var(--text);}
-        .inv-map-row .confidence{font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;white-space:nowrap;}
+        .inv-mapping-modal{background:var(--card);border-radius:16px;width:94%;max-width:720px;max-height:80vh;overflow:hidden;padding:0;box-shadow:0 24px 80px rgba(0,0,0,0.4);}
+        .inv-mapping-modal .inv-map-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card);z-index:1;display:flex;justify-content:space-between;align-items:center;}
+        .inv-mapping-modal .inv-map-header h3{margin:0;font-size:17px;font-weight:700;}
+        .inv-mapping-modal .inv-map-header .inv-map-close{width:32px;height:32px;border-radius:8px;border:none;background:var(--bg-sec);color:var(--text-sec);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+        .inv-mapping-modal .inv-map-header .inv-map-close:hover{background:rgba(var(--red-rgb),0.1);color:var(--red);}
+        .inv-map-body{padding:16px 24px;overflow-y:auto;max-height:calc(80vh - 140px);}
+        .inv-map-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;margin-bottom:8px;background:rgba(var(--purple-rgb),0.03);border:1px solid var(--border);}
+        .inv-map-row .sheet-name{flex:0 0 180px;font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .inv-map-row select{flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border);font-size:12px;background:var(--card);color:var(--text);}
+        .inv-map-row .confidence{font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;white-space:nowrap;}
         .inv-map-row .confidence.high{background:rgba(var(--green-rgb),0.12);color:var(--green);}
         .inv-map-row .confidence.medium{background:rgba(var(--gold-rgb,180,130,20),0.12);color:#b48214;}
         .inv-map-row .confidence.low{background:rgba(var(--red-rgb),0.12);color:var(--red);}
-        .inv-map-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
-        .inv-map-actions button{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;}
+        .inv-map-actions{display:flex;gap:10px;justify-content:flex-end;padding:16px 24px;border-top:1px solid var(--border);background:var(--card);}
+        .inv-map-actions button{padding:10px 28px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;border:none;transition:0.15s;}
         .inv-map-actions .btn-save{background:var(--purple);color:#fff;}
+        .inv-map-actions .btn-save:hover{filter:brightness(1.1);}
         .inv-map-actions .btn-cancel{background:var(--bg-sec);color:var(--text-sec);}
+        .inv-map-actions .btn-cancel:hover{background:var(--border);}
         .inv-toolbar-right{display:flex;align-items:center;gap:8px;margin-left:auto;}
         .inv-info-banner{margin-bottom:14px;padding:12px 16px;background:rgba(var(--blue-rgb),0.06);border:1px solid rgba(var(--blue-rgb),0.2);color:var(--blue);border-radius:12px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:8px;}
         .inv-alert-banner{margin-bottom:14px;padding:12px 16px;background:rgba(var(--red-rgb),0.06);border:1px solid rgba(var(--red-rgb),0.2);color:var(--red);border-radius:12px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px;}
@@ -1367,7 +1373,7 @@
                 </div>
 
                 <!-- Inventory Mapping Overlay -->
-                <div class="inv-mapping-overlay" id="invMappingOverlay">
+                <div class="inv-mapping-overlay" id="invMappingOverlay" onclick="if(event.target===this)INV.closeMapping()">
                     <div class="inv-mapping-modal" id="invMappingModal"></div>
                 </div>
 
@@ -6728,7 +6734,8 @@
             const unmapped = ST.products.filter(p=>!p.product_id);
             const shopify = ST.shopifyProducts||[];
             if (unmapped.length===0) { alert('All products are already mapped to Shopify!'); return; }
-            let html = `<h3>Map Sheet Products to Shopify (${unmapped.length} unmapped)</h3><div style="max-height:55vh;overflow-y:auto;">`;
+            let html = `<div class="inv-map-header"><h3>Map Sheet Products to Shopify (${unmapped.length} unmapped)</h3><button class="inv-map-close" onclick="INV.closeMapping()" title="Close">&times;</button></div>`;
+            html += `<div class="inv-map-body">`;
             unmapped.forEach((p,i) => {
                 const matches = findBestMatches(p.name, shopify);
                 const bestScore = matches.length>0?matches[0].score:0;
@@ -6739,7 +6746,6 @@
                 html+=`<span class="confidence ${confCls}">${confLabel} ${Math.round(bestScore*100)}%</span>`;
                 html+=`<select data-inv-map-select="${i}"><option value="">— No match —</option>`;
                 matches.forEach(m=>{ html+=`<option value="${m.product.id}" ${m.score>=0.7?'selected':''}>${m.product.name} (${Math.round(m.score*100)}%)</option>`; });
-                // Also add all shopify products as options
                 shopify.forEach(sp=>{ if (!matches.find(m=>m.product.id===sp.id)) html+=`<option value="${sp.id}">${sp.name}</option>`; });
                 html+=`</select></div>`;
             });
@@ -6747,9 +6753,12 @@
             const modal = document.getElementById('invMappingModal');
             modal.innerHTML = html;
             document.getElementById('invMappingOverlay').classList.add('active');
+            // ESC to close
+            document.addEventListener('keydown', _invEscHandler);
         }
 
-        function closeMapping() { document.getElementById('invMappingOverlay').classList.remove('active'); }
+        function _invEscHandler(e) { if (e.key==='Escape') closeMapping(); }
+        function closeMapping() { document.getElementById('invMappingOverlay').classList.remove('active'); document.removeEventListener('keydown', _invEscHandler); }
 
         async function saveMapping() {
             const overlay = document.getElementById('invMappingOverlay');
@@ -6784,7 +6793,7 @@
         async function loadSkus() {
             let masters = [];
             if (ST.hasSupabaseTables.master) {
-                const m = await invSq('master_inventory','?select=id,product_name,product_id,physical_stock,returns_received,restock_qc,damaged,shopify_qty,sku,is_active&order=product_name.asc');
+                const m = await invSq('master_inventory','?select=id,product_name,product_id,physical_stock,returns_received,restock_qc,damaged,shopify_qty,is_active&order=product_name.asc');
                 masters = (m.rows||[]).filter(x => x.is_active !== false);
             }
             const p = await invSq('products','?select=id,name,sku,cost_per_item');
@@ -6798,7 +6807,7 @@
                     const linked = m.product_id ? productsById.get(m.product_id) : null;
                     const nameMatch = !linked ? productsByName.get(normName(m.product_name)) : null;
                     const match = linked || nameMatch;
-                    return { id:m.id, master_inventory_id:m.id, product_id:m.product_id||null, name:(m.product_name||'').trim(), product_name:m.product_name, sku:m.sku||match?.sku||null, cost_per_item:+match?.cost_per_item||0, is_active:m.is_active!==false, _matched:!!match, _physStock:+m.physical_stock||0, _returnsRecv:+m.returns_received||0, _restockQc:+m.restock_qc||0, _damaged:+m.damaged||0, _shopifyQty:m.shopify_qty };
+                    return { id:m.id, master_inventory_id:m.id, product_id:m.product_id||null, name:(m.product_name||'').trim(), product_name:m.product_name, sku:match?.sku||null, cost_per_item:+match?.cost_per_item||0, is_active:m.is_active!==false, _matched:!!match, _physStock:+m.physical_stock||0, _returnsRecv:+m.returns_received||0, _restockQc:+m.restock_qc||0, _damaged:+m.damaged||0, _shopifyQty:m.shopify_qty };
                 });
             }
         }
