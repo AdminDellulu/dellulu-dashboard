@@ -1044,6 +1044,16 @@
         .inv-map-actions .btn-cancel:hover{background:#e4e4ec;}
         .inv-multistore-icon{display:inline-block;margin-left:4px;font-size:10px;color:var(--text-sec);opacity:0.4;cursor:help;vertical-align:middle;}
         .inv-multistore-icon:hover{opacity:0.8;color:var(--purple);}
+        .inv-date-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;padding:10px 16px;background:var(--surface);border-radius:12px;border:1px solid var(--border);}
+        .inv-date-pills{display:flex;gap:4px;}
+        .inv-date-pill{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-sec);font-size:12px;font-weight:600;cursor:pointer;transition:0.15s;font-family:inherit;}
+        .inv-date-pill:hover{background:rgba(var(--purple-rgb),0.06);color:var(--text);border-color:rgba(var(--purple-rgb),0.2);}
+        .inv-date-pill.active{background:var(--purple);color:#fff;border-color:var(--purple);}
+        .inv-date-range{display:flex;align-items:center;gap:10px;}
+        .inv-date-input{padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12px;font-family:inherit;cursor:pointer;}
+        .inv-date-input:focus{outline:none;border-color:var(--purple);box-shadow:0 0 0 3px rgba(var(--purple-rgb),0.1);}
+        .inv-date-label{font-size:12px;font-weight:600;color:var(--text);min-width:80px;text-align:right;}
+        .inv-date-label .inv-date-hist{font-size:10px;font-weight:500;color:var(--text-sec);margin-left:4px;padding:2px 6px;background:rgba(var(--purple-rgb),0.08);border-radius:4px;}
         .inv-toolbar-right{display:flex;align-items:center;gap:8px;margin-left:auto;}
         .inv-info-banner{margin-bottom:14px;padding:12px 16px;background:rgba(var(--blue-rgb),0.06);border:1px solid rgba(var(--blue-rgb),0.2);color:var(--blue);border-radius:12px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:8px;}
         .inv-alert-banner{margin-bottom:14px;padding:12px 16px;background:rgba(var(--red-rgb),0.06);border:1px solid rgba(var(--red-rgb),0.2);color:var(--red);border-radius:12px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px;}
@@ -1309,6 +1319,18 @@
                         <span id="invVarianceText"></span>
                     </div>
 
+                    <div class="inv-date-bar" id="invDateBar">
+                        <div class="inv-date-pills">
+                            <button class="inv-date-pill active" data-inv-date="today">Today</button>
+                            <button class="inv-date-pill" data-inv-date="yesterday">Yesterday</button>
+                            <button class="inv-date-pill" data-inv-date="7d">7 Days</button>
+                            <button class="inv-date-pill" data-inv-date="30d">30 Days</button>
+                        </div>
+                        <div class="inv-date-range">
+                            <input type="date" id="invDatePicker" class="inv-date-input">
+                            <span class="inv-date-label" id="invDateLabel">Today</span>
+                        </div>
+                    </div>
                     <div class="inv-toolbar" id="invToolbar">
                         <input type="search" id="invSearch" class="inv-search" placeholder="Search SKU, product name...">
                         <select id="invFilterStatus" class="inv-select">
@@ -6697,12 +6719,30 @@
                         try {
                             const existing = await invSq('master_inventory',`?product_name=eq.${encodeURIComponent(b.product_name)}&select=id`);
                             if (existing.rows && existing.rows.length>0) {
-                                await fetch(`${SUPABASE_URL}/rest/v1/master_inventory?id=eq.${existing.rows[0].id}`, {method:'PATCH',headers:{...HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({physical_stock:b.physical_stock,returns_received:b.returns_received,damaged:b.damaged})});
+                                await fetch(`${SUPABASE_URL}/rest/v1/master_inventory?id=eq.${existing.rows[0].id}`, {method:'PATCH',headers:{...headers,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({physical_stock:b.physical_stock,returns_received:b.returns_received,damaged:b.damaged})});
                             } else {
-                                await fetch(`${SUPABASE_URL}/rest/v1/master_inventory`, {method:'POST',headers:{...HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({product_name:b.product_name,physical_stock:b.physical_stock,returns_received:b.returns_received,damaged:b.damaged,brand_id:'dellulu'})});
+                                await fetch(`${SUPABASE_URL}/rest/v1/master_inventory`, {method:'POST',headers:{...headers,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({product_name:b.product_name,physical_stock:b.physical_stock,returns_received:b.returns_received,damaged:b.damaged,brand_id:'dellulu'})});
                             }
                         } catch(e) { console.warn('[inv] Upsert failed for',b.product_name,e); }
                     }
+                }
+                // Also persist today's data as a daily snapshot for historical views
+                if (batch.length>0 && ST.hasSupabaseTables.master && ST.hasSupabaseTables.snapshots) {
+                    try {
+                        // Get all master_inventory IDs for matching
+                        const allMasters = await invSq('master_inventory','?select=id,product_name');
+                        const masterMap = new Map(); (allMasters.rows||[]).forEach(m=>masterMap.set(normName(m.product_name),m.id));
+                        const snapRows = batch.filter(b=>masterMap.has(normName(b.product_name))).map(b=>({
+                            snapshot_date:ST.todayIST, master_inventory_id:masterMap.get(normName(b.product_name)),
+                            physical_stock:b.physical_stock, returns_received:b.returns_received,
+                            restockable_qty:b.returns_received, damaged_qty:b.damaged,
+                            updated_by:'sheet-sync-v3'
+                        }));
+                        if (snapRows.length>0) {
+                            await fetch(SUPABASE_URL+'/rest/v1/inventory_snapshots?on_conflict=snapshot_date,master_inventory_id',
+                                {method:'POST',headers:{...headers,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(snapRows)});
+                        }
+                    } catch(e) { console.warn('[inv] Snapshot persist failed:',e); }
                 }
                 ST.sheetSyncStatus='ok'; ST.sheetSyncTime=new Date();
                 ST.sheetRowCount=batch.length;
@@ -6781,7 +6821,7 @@
                 const pid = sel.value;
                 if (!pid||!mid) continue;
                 try {
-                    await fetch(`${SUPABASE_URL}/rest/v1/master_inventory?id=eq.${mid}`, {method:'PATCH',headers:{...HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({product_id:parseInt(pid)})});
+                    await fetch(`${SUPABASE_URL}/rest/v1/master_inventory?id=eq.${mid}`, {method:'PATCH',headers:{...headers,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({product_id:parseInt(pid)})});
                     saved++;
                 } catch(e) { console.warn('[inv] Save mapping failed',mid,e); }
             }
@@ -7135,14 +7175,103 @@
             }).join('');
         }
 
+        // ── Date Filtering ──
+        function getDateFromPreset(preset) {
+            const d = new Date(); const ist = new Date(d.getTime()+(5.5*60-d.getTimezoneOffset())*60000);
+            const today = ist.toISOString().slice(0,10);
+            if (preset==='today') return today;
+            if (preset==='yesterday') { ist.setDate(ist.getDate()-1); return ist.toISOString().slice(0,10); }
+            return today; // 7d/30d handled differently (range)
+        }
+
+        function isRangePreset(preset) { return preset==='7d'||preset==='30d'; }
+
+        async function switchToDate(date, label) {
+            ST.selectedDate = date;
+            ST.isHistorical = (date !== ST.todayIST);
+            // Update label
+            const labelEl = document.getElementById('invDateLabel');
+            if (date===ST.todayIST) labelEl.innerHTML='Today <span class="inv-date-hist">LIVE</span>';
+            else labelEl.innerHTML=`${date} <span class="inv-date-hist">HISTORICAL</span>`;
+            // Update date picker
+            document.getElementById('invDatePicker').value = date;
+            // Toggle editability — historical data is read-only
+            document.querySelectorAll('.inv-cell-input').forEach(el => { el.disabled = ST.isHistorical; if(ST.isHistorical) el.style.opacity='0.6'; else el.style.opacity='1'; });
+            // Hide Save button for historical view
+            const saveBtn = document.getElementById('invBtnSave');
+            if (saveBtn) saveBtn.style.display = ST.isHistorical ? 'none' : '';
+            // Load snapshot for the selected date
+            if (ST.isHistorical && ST.hasSupabaseTables.snapshots) {
+                const r = await invSq('inventory_snapshots',`?snapshot_date=eq.${date}&select=*`);
+                const snapRows = r.rows||[];
+                if (snapRows.length===0) {
+                    // No data for this date
+                    ST.snapshots={};
+                    ST.products.forEach(p => { ST.snapshots[p.id]={master_inventory_id:p.id,snapshot_date:date,physical_stock:0,returns_received:0,restockable_qty:0,damaged_qty:0,shopify_qty:null}; });
+                    const labelEl2 = document.getElementById('invDateLabel');
+                    labelEl2.innerHTML=`${date} <span class="inv-date-hist" style="background:rgba(var(--red-rgb),0.12);color:var(--red);">NO DATA</span>`;
+                } else {
+                    // Overlay snapshot data onto current products
+                    ST.snapshots={};
+                    ST.products.forEach(p => { ST.snapshots[p.id]={master_inventory_id:p.id,snapshot_date:date,physical_stock:0,returns_received:0,restockable_qty:0,damaged_qty:0,shopify_qty:null}; });
+                    snapRows.forEach(s => { if(ST.snapshots[s.master_inventory_id]) Object.assign(ST.snapshots[s.master_inventory_id], s); });
+                }
+            } else if (!ST.isHistorical) {
+                // Reload today's live data from master_inventory
+                await loadSnapshots();
+            }
+            rerender();
+        }
+
+        async function switchToRange(preset) {
+            const days = preset==='7d'?7:30;
+            const end = ST.todayIST;
+            const startD = new Date(); startD.setDate(startD.getDate()-days);
+            const start = startD.toISOString().slice(0,10);
+            ST.selectedDate = end;
+            ST.isHistorical = false;
+            ST.dateRange = {start, end, days};
+            const labelEl = document.getElementById('invDateLabel');
+            labelEl.innerHTML=`Last ${days} days <span class="inv-date-hist">RANGE</span>`;
+            // For range view, show today's data (same as default) — range mainly affects velocity/trend calculations
+            await loadSnapshots();
+            rerender();
+        }
+
+        function wireDateEvents() {
+            // Pill buttons
+            document.querySelectorAll('.inv-date-pill').forEach(btn=>{
+                btn.addEventListener('click', async ()=>{
+                    document.querySelectorAll('.inv-date-pill').forEach(b=>b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const preset = btn.dataset.invDate;
+                    if (isRangePreset(preset)) { await switchToRange(preset); }
+                    else { await switchToDate(getDateFromPreset(preset), preset); }
+                });
+            });
+            // Date picker
+            document.getElementById('invDatePicker').addEventListener('change', async (e)=>{
+                const val = e.target.value;
+                if (!val) return;
+                document.querySelectorAll('.inv-date-pill').forEach(b=>b.classList.remove('active'));
+                await switchToDate(val, val);
+            });
+        }
+
         async function init() {
             if (ST.initialized) { rerender(); return; }
+            ST.selectedDate = ST.todayIST;
+            ST.isHistorical = false;
+            ST.dateRange = null;
             loadConfig(); loadExpand();
             await checkTables();
-            // Sync from Google Sheet first (updates master_inventory)
+            // Sync from Google Sheet first (updates master_inventory + writes today's snapshot)
             await syncFromSheet();
             await loadSkus();
             await Promise.all([loadVelocityData(), loadAdSpend(), loadSnapshots(), loadReturns()]);
+            // Set date picker default
+            document.getElementById('invDatePicker').value = ST.todayIST;
+            document.getElementById('invDateLabel').innerHTML = 'Today <span class="inv-date-hist">LIVE</span>';
             // Update sync time display
             const syncEl = document.getElementById('invSyncTime');
             if (ST.sheetSyncStatus==='ok') {
@@ -7152,6 +7281,7 @@
             }
             ST.initialized=true;
             wireEvents();
+            wireDateEvents();
             rerender();
             // Show unmapped count
             const unmapped = ST.products.filter(p=>!p.product_id).length;
