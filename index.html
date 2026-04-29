@@ -6683,6 +6683,7 @@
 
         // ── Google Sheet Live Sync ──
         const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSiuAxNm2DgMaILKok_08pUVgU_VjEQC47i3Jl9JKHthvGkExU8dl2WphSBjOTUl1gb8mtaCs07GVWU/pub?gid=310513141&single=true&output=csv';
+        const PRICING_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRqwe8dcgmUvPbQ8Rk4z6YIajOJvXRRd9zUVzgIA8vxjP9Fm654cnhmL_7qh8mg67-8dBDJYdnXPSKm/pub?gid=419506361&single=true&output=csv';
 
         async function syncFromSheet() {
             try {
@@ -6746,6 +6747,73 @@
                 ST.sheetSyncStatus='ok'; ST.sheetSyncTime=new Date();
                 ST.sheetRowCount=batch.length;
             } catch(e) { console.warn('[inv] Sheet sync error:',e); ST.sheetSyncStatus='error'; }
+        }
+
+        // ── Pricing Sheet Sync (COGS from Google Sheet → master_inventory.cost_price) ──
+        async function syncPricingSheet() {
+            try {
+                const res = await fetch(PRICING_CSV_URL);
+                if (!res.ok) { console.warn('[inv] Pricing sheet fetch failed:', res.status); ST.pricingSyncStatus='error'; return; }
+                const csv = await res.text();
+                const rows = parseCSV(csv);
+                if (rows.length < 2) { ST.pricingSyncStatus='empty'; return; }
+                // Detect columns — look for product/name + cost/price/cogs headers
+                const hdr = rows[0].map(h=>(h||'').trim().toLowerCase());
+                const iName = hdr.findIndex(h=>h.includes('product')||h.includes('name')||h.includes('item'));
+                let iCost = hdr.findIndex(h=>h.includes('cost')||h.includes('cogs')||h.includes('purchase'));
+                let iSell = hdr.findIndex(h=>h.includes('sell')||h.includes('mrp')||h.includes('retail')||h.includes('price'));
+                // If sell matched the same col as cost (e.g. "cost price"), clear sell
+                if (iSell>=0 && iSell===iCost) iSell=-1;
+                // Fallback: if no header match, try positional (A=name, B=cost)
+                if (iCost<0 && hdr.length>=2) iCost=1;
+                if (iName<0) { console.warn('[inv] Pricing sheet missing product column'); ST.pricingSyncStatus='bad_format'; return; }
+                // Build pricing map: normalized name → {cost, sell}
+                const pricingMap = new Map();
+                let pricingRowCount = 0;
+                for (let i=1;i<rows.length;i++) {
+                    const r=rows[i]; if (!r[iName]) continue;
+                    const name = (r[iName]||'').trim().replace(/​/g,'').replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu,'').trim();
+                    if (!name) continue;
+                    const cost = iCost>=0 ? parseFloat((r[iCost]||'').replace(/[₹,\s]/g,'')) : NaN;
+                    const sell = iSell>=0 ? parseFloat((r[iSell]||'').replace(/[₹,\s]/g,'')) : NaN;
+                    if (isNaN(cost) && isNaN(sell)) continue;
+                    pricingMap.set(normName(name), { cost:isNaN(cost)?null:cost, sell:isNaN(sell)?null:sell, rawName:name });
+                    pricingRowCount++;
+                }
+                if (pricingMap.size===0) { ST.pricingSyncStatus='no_data'; return; }
+                // Match against master_inventory products and update cost_price
+                if (!ST.hasSupabaseTables.master) { ST.pricingSyncStatus='no_table'; return; }
+                const allMasters = await invSq('master_inventory','?select=id,product_name');
+                const masters = allMasters.rows||[];
+                let matched=0, unmatched=0;
+                const unmatchedNames = [];
+                for (const m of masters) {
+                    const key = normName(m.product_name);
+                    // Try exact normalized match first
+                    let pricing = pricingMap.get(key);
+                    // Fuzzy fallback — try all pricing names and pick best match
+                    if (!pricing) {
+                        let bestScore=0, bestEntry=null;
+                        for (const [pKey, pVal] of pricingMap) {
+                            const score = fuzzyScore(key, pKey);
+                            if (score>bestScore) { bestScore=score; bestEntry=pVal; }
+                        }
+                        if (bestScore>=0.7) pricing=bestEntry;
+                    }
+                    if (pricing && pricing.cost!=null && pricing.cost>0) {
+                        try {
+                            await fetch(`${SUPABASE_URL}/rest/v1/master_inventory?id=eq.${m.id}`, {
+                                method:'PATCH', headers:{...headers,'Content-Type':'application/json','Prefer':'return=minimal'},
+                                body:JSON.stringify({cost_price:pricing.cost})
+                            });
+                            matched++;
+                        } catch(e) { console.warn('[inv] Pricing update failed for',m.product_name,e); }
+                    } else { unmatched++; unmatchedNames.push(m.product_name); }
+                }
+                ST.pricingSyncStatus='ok'; ST.pricingSyncMatched=matched; ST.pricingSyncUnmatched=unmatched;
+                ST.pricingSyncTotal=pricingRowCount; ST.pricingSyncUnmatchedNames=unmatchedNames;
+                console.log(`[inv] Pricing sync: ${matched} matched, ${unmatched} unmatched of ${masters.length} inventory products. Pricing sheet has ${pricingRowCount} items.`);
+            } catch(e) { console.warn('[inv] Pricing sheet sync error:',e); ST.pricingSyncStatus='error'; }
         }
 
         function parseCSV(text) {
@@ -6843,7 +6911,7 @@
         async function loadSkus() {
             let masters = [];
             if (ST.hasSupabaseTables.master) {
-                const m = await invSq('master_inventory','?select=id,product_name,product_id,physical_stock,returns_received,restock_qc,damaged,shopify_qty&order=product_name.asc');
+                const m = await invSq('master_inventory','?select=id,product_name,product_id,physical_stock,returns_received,restock_qc,damaged,shopify_qty,cost_price&order=product_name.asc');
                 masters = m.rows||[];
             }
             const p = await invSq('products','?select=id,name,sku,cost_per_item,sku_price,is_active');
@@ -6851,13 +6919,13 @@
             const productsById = new Map(); ST.shopifyProducts.forEach(x => productsById.set(x.id, x));
             const productsByName = new Map(); ST.shopifyProducts.forEach(x => productsByName.set(normName(x.name), x));
             if (masters.length === 0) {
-                ST.products = MASTER_SEED.map((m,i) => { const match=productsByName.get(normName(m.product_name)); return { id:'seed-'+i, master_inventory_id:'seed-'+i, product_id:match?.id||null, name:m.product_name.trim(), product_name:m.product_name, sku:match?.sku||null, cost_per_item:+match?.cost_per_item||0, _shopifySellPrice:+match?.sku_price||0, is_active:true, _matched:!!match, _seedQty:m.physical_stock, _physStock:m.physical_stock, _returnsRecv:0 }; });
+                ST.products = MASTER_SEED.map((m,i) => { const match=productsByName.get(normName(m.product_name)); return { id:'seed-'+i, master_inventory_id:'seed-'+i, product_id:match?.id||null, name:m.product_name.trim(), product_name:m.product_name, sku:match?.sku||null, cost_per_item:+match?.cost_per_item||0, _sheetCost:0, _shopifySellPrice:+match?.sku_price||0, is_active:true, _matched:!!match, _seedQty:m.physical_stock, _physStock:m.physical_stock, _returnsRecv:0 }; });
             } else {
                 ST.products = masters.map(m => {
                     const linked = m.product_id ? productsById.get(m.product_id) : null;
                     const nameMatch = !linked ? productsByName.get(normName(m.product_name)) : null;
                     const match = linked || nameMatch;
-                    return { id:m.id, master_inventory_id:m.id, product_id:m.product_id||match?.id||null, name:(m.product_name||'').trim(), product_name:m.product_name, sku:match?.sku||null, cost_per_item:+match?.cost_per_item||0, _shopifySellPrice:+match?.sku_price||0, is_active:true, _matched:!!match, _physStock:+m.physical_stock||0, _returnsRecv:+m.returns_received||0, _restockQc:+m.restock_qc||0, _damaged:+m.damaged||0, _shopifyQty:m.shopify_qty };
+                    return { id:m.id, master_inventory_id:m.id, product_id:m.product_id||match?.id||null, name:(m.product_name||'').trim(), product_name:m.product_name, sku:match?.sku||null, cost_per_item:+match?.cost_per_item||0, _sheetCost:+m.cost_price||0, _shopifySellPrice:+match?.sku_price||0, is_active:true, _matched:!!match, _physStock:+m.physical_stock||0, _returnsRecv:+m.returns_received||0, _restockQc:+m.restock_qc||0, _damaged:+m.damaged||0, _shopifyQty:m.shopify_qty };
                 });
             }
         }
@@ -6962,7 +7030,7 @@
                 const net=phys+returnsRecv; // Net = Opening + QC Pass Returns
                 const totalReturns=returnsRecv+damaged;
                 const returnRate=totalReturns>0?(damaged/totalReturns)*100:null;
-                const cogs=+p.cost_per_item||0;
+                const cogs=+p._sheetCost||+p.cost_per_item||0; // Pricing sheet > Shopify COGS
                 // Sell price from Shopify sku_price; blank for non-Shopify products
                 const sellPrice=+p._shopifySellPrice||0;
                 const margin=(sellPrice>0&&cogs>0)?((sellPrice-cogs)/sellPrice)*100:null;
@@ -7266,6 +7334,8 @@
             await checkTables();
             // Sync from Google Sheet first (updates master_inventory + writes today's snapshot)
             await syncFromSheet();
+            // Sync pricing/COGS from pricing sheet → master_inventory.cost_price
+            await syncPricingSheet();
             await loadSkus();
             await Promise.all([loadVelocityData(), loadAdSpend(), loadSnapshots(), loadReturns()]);
             // Set date picker default
@@ -7274,7 +7344,9 @@
             // Update sync time display
             const syncEl = document.getElementById('invSyncTime');
             if (ST.sheetSyncStatus==='ok') {
-                syncEl.innerHTML='<span class="inv-sync-badge">SHEET LINKED</span> synced '+new Date().toLocaleTimeString('en-IN',{hour12:false})+' · '+ST.sheetRowCount+' SKUs';
+                let syncText='<span class="inv-sync-badge">SHEET LINKED</span> synced '+new Date().toLocaleTimeString('en-IN',{hour12:false})+' · '+ST.sheetRowCount+' SKUs';
+                if (ST.pricingSyncStatus==='ok') syncText+=` · <span class="inv-sync-badge">COGS ${ST.pricingSyncMatched}/${ST.pricingSyncMatched+ST.pricingSyncUnmatched}</span>`;
+                syncEl.innerHTML=syncText;
             } else {
                 syncEl.innerHTML='<span class="inv-sync-badge stale">SHEET '+(ST.sheetSyncStatus||'N/A').toUpperCase()+'</span> '+new Date().toLocaleTimeString('en-IN',{hour12:false});
             }
