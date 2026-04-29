@@ -6573,22 +6573,24 @@
         };
 
         const MASTER_SEED = [
-            ['Aerlune',2],['ARX6 6-Slot Watch Case',19],['Automatic Clock',4],['Book lamp',1],
-            ['BRIK Magnetic Illusion Bookend',213],['Brushnet',0],['Clasp leather bookmark set (2pcs)',8],
-            ['Clearkey',11],['Dashswift',2],['Dawnbeam',0],['Dexo',190],['Dispensra',1],['Dock',36],
-            ['Dock+',0],['Doorbell',189],['Ferry fern',0],['FUREX Reusable Fur Remover',55],['Funko',0],
+            ['Aerlune',2],['ARX6 6-Slot Watch Case',19],['ANCHOR Car headrest hanger',368],
+            ['Automatic Clock',4],['Book lamp',1],['BRIK Magnetic Illusion Bookend',213],
+            ['Brushnet',0],['Bristal toothbrush holder',23],['Clasp leather bookmark set (2pcs)',8],
+            ['Clearkey',11],['Dashswift',2],['Dawnbeam',32],['Dexo',190],['Dispensra',1],['Dock',36],
+            ['Dock+',0],['Doorbell',188],['Ferry fern',0],['FUREX Reusable Fur Remover',55],['Funko',322],
             ['Gear desk pen holder (engine)',3],['GlowBar Motion Sensor Light',214],['Glowbox',1],
-            ['GravityLizard Wall-Climbing RC Bot 2.0',42],['Gullak',6],['Halo Flat Page Reading Light',288],
-            ['Hanari',34],['HIELO Foldable face ice bowl',298],['IVORA Wall light',42],['Journel',0],
-            ['Kalimba',190],['Knightset dashboard',2],['Latch light key book',3],['Lumox',171],
-            ['Lumox cover',32],['Lumox with cover',25],['Lying panda',3],['Magpro',120],['Marry table',5],
-            ['Moxi',48],['Nineteen80 Googles',5],['Noxa light',19],['Oops Gift',192],['Oren Lamp',5],
-            ['Orin elephant box',1],['Osaka',10],['Panda',6],['Parke Minimal Eyeglass Rest',23],['Pear',2],
-            ['Pixipop',4],['PLGX Marshall',16],['Retro ride',1],['Retrox Retro Handheld Emulator Console',33],
-            ['RINZR Shower set',13],['Seiraku crystal tree',3],['Skycraft',2],
-            ['Stellarion Galaxy Projector',48],['Sticmake',84],
-            ['Strapo Adjustable Rainbow Luggage Strap',77],['Tapr',30],['Tosa',53],['Torque Forearm Trainer',276],
-            ['TULA Polished Tennis Bracelet',32],['Vintage car frame',2],['Wraply',13]
+            ['GravityLizard Wall-Climbing RC Bot 2.0',42],['Gullak',6],['Halo Flat Page Reading Light',284],
+            ['Hanari',30],['HIELO Foldable face ice bowl',298],['IVORA Wall light',41],['Journel',0],
+            ['Mini Kalimba 8-Key Thumb Piano',190],['Knightset dashboard',2],['Latch light key book',3],
+            ['Lumox',171],['Lumox cover',32],['Lumox with cover',25],['Lying panda',3],['Magpro',120],
+            ['Marry table',5],['Moxi',48],['Nineteen80 Googles',5],['Noxa light',19],['Oops Gift',192],
+            ['Oren Lamp',4],['Orin elephant box',1],['Osaka',10],['Panda',6],
+            ['Parke Minimal Eyeglass Rest',23],['Pear',2],['Pixipop',4],['PLGX Marshall',16],
+            ['Retro ride',1],['Retrox Retro Handheld Emulator Console',33],['RINZR Shower set',13],
+            ['Seiraku crystal tree',3],['Skycraft',2],['Stellarion Galaxy Projector',48],['Sticmake',84],
+            ['Strapo Adjustable Rainbow Luggage Strap',8],['Tapr',30],['Tosa',53],
+            ['Torque Forearm Trainer',276],['TULA Polished Tennis Bracelet',32],
+            ['Vintage car frame',2],['Wraply',13]
         ].map(([n,q])=>({product_name:n,physical_stock:q}));
 
         const COL_GROUPS = [
@@ -6654,8 +6656,7 @@
         }
 
         // ── Google Sheet Live Sync ──
-        const SHEET_ID = '1MgAq6Gg2LHjnsI3in8X5kAKPp0GOLxuiJy9iVUvgq7E';
-        const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Inventory`;
+        const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSiuAxNm2DgMaILKok_08pUVgU_VjEQC47i3Jl9JKHthvGkExU8dl2WphSBjOTUl1gb8mtaCs07GVWU/pub?gid=310513141&single=true&output=csv';
 
         async function syncFromSheet() {
             try {
@@ -6793,8 +6794,8 @@
         async function loadSkus() {
             let masters = [];
             if (ST.hasSupabaseTables.master) {
-                const m = await invSq('master_inventory','?select=id,product_name,product_id,physical_stock,returns_received,restock_qc,damaged,shopify_qty,is_active&order=product_name.asc');
-                masters = (m.rows||[]).filter(x => x.is_active !== false);
+                const m = await invSq('master_inventory','?select=id,product_name,product_id,physical_stock,returns_received,restock_qc,damaged,shopify_qty&order=product_name.asc');
+                masters = m.rows||[];
             }
             const p = await invSq('products','?select=id,name,sku,cost_per_item');
             ST.shopifyProducts = p.rows||[];
@@ -6807,7 +6808,7 @@
                     const linked = m.product_id ? productsById.get(m.product_id) : null;
                     const nameMatch = !linked ? productsByName.get(normName(m.product_name)) : null;
                     const match = linked || nameMatch;
-                    return { id:m.id, master_inventory_id:m.id, product_id:m.product_id||null, name:(m.product_name||'').trim(), product_name:m.product_name, sku:match?.sku||null, cost_per_item:+match?.cost_per_item||0, is_active:m.is_active!==false, _matched:!!match, _physStock:+m.physical_stock||0, _returnsRecv:+m.returns_received||0, _restockQc:+m.restock_qc||0, _damaged:+m.damaged||0, _shopifyQty:m.shopify_qty };
+                    return { id:m.id, master_inventory_id:m.id, product_id:m.product_id||null, name:(m.product_name||'').trim(), product_name:m.product_name, sku:match?.sku||null, cost_per_item:+match?.cost_per_item||0, is_active:true, _matched:!!match, _physStock:+m.physical_stock||0, _returnsRecv:+m.returns_received||0, _restockQc:+m.restock_qc||0, _damaged:+m.damaged||0, _shopifyQty:m.shopify_qty };
                 });
             }
         }
