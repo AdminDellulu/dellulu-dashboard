@@ -1042,6 +1042,8 @@
         .inv-map-actions .btn-save:hover{filter:brightness(1.1);transform:translateY(-1px);}
         .inv-map-actions .btn-cancel{background:#f0f0f5;color:#555;border:1px solid #e0e0e8;}
         .inv-map-actions .btn-cancel:hover{background:#e4e4ec;}
+        .inv-multistore-icon{display:inline-block;margin-left:4px;font-size:10px;color:var(--text-sec);opacity:0.4;cursor:help;vertical-align:middle;}
+        .inv-multistore-icon:hover{opacity:0.8;color:var(--purple);}
         .inv-toolbar-right{display:flex;align-items:center;gap:8px;margin-left:auto;}
         .inv-info-banner{margin-bottom:14px;padding:12px 16px;background:rgba(var(--blue-rgb),0.06);border:1px solid rgba(var(--blue-rgb),0.2);color:var(--blue);border-radius:12px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:8px;}
         .inv-alert-banner{margin-bottom:14px;padding:12px 16px;background:rgba(var(--red-rgb),0.06);border:1px solid rgba(var(--red-rgb),0.2);color:var(--red);border-radius:12px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px;}
@@ -6598,11 +6600,11 @@
 
         const COL_GROUPS = [
             { key:'product', primary:{ field:'product', label:'Product' } },
-            { key:'phys', primary:{ field:'phys', label:'Phys Stock', edit:true, align:'right' } },
+            { key:'phys', primary:{ field:'phys', label:'Opening Stock', edit:true, align:'right' } },
             { key:'returns', label:'Returns', collapsible:true,
-              primary:{ field:'returnsRecv', label:'Returns', edit:true, align:'right' },
-              secondary:[ { field:'restockQc',label:'Restock QC',edit:true,align:'right' }, { field:'damaged',label:'Damaged',align:'right' }, { field:'returnRate',label:'Return %',align:'right' } ] },
-            { key:'net', primary:{ field:'net', label:'Net Avail', align:'right', bold:true } },
+              primary:{ field:'returnsRecv', label:'QC Pass', edit:true, align:'right' },
+              secondary:[ { field:'damaged',label:'Damaged',align:'right' }, { field:'returnRate',label:'Return %',align:'right' } ] },
+            { key:'net', primary:{ field:'net', label:'Net Inventory', align:'right', bold:true } },
             { key:'pricing', label:'Pricing', collapsible:true,
               primary:{ field:'margin', label:'Margin %', align:'right', bold:true },
               secondary:[ { field:'cogs',label:'COGS',align:'right' }, { field:'sellPrice',label:'Sell Price',align:'right' } ] },
@@ -6668,21 +6670,26 @@
                 const csv = await res.text();
                 const rows = parseCSV(csv);
                 if (rows.length < 2) { ST.sheetSyncStatus='empty'; return; }
-                // Parse header
+                // Parse header — Sheet columns: A=Product, B=Opening Stock, C=Returns(QC Pass), D=Returns(Damaged), E=Net Inventory
                 const hdr = rows[0].map(h=>(h||'').trim().toLowerCase());
-                const iName=hdr.findIndex(h=>h.includes('product'));
-                const iPhys=hdr.findIndex(h=>h.includes('physical'));
-                const iRet=hdr.findIndex(h=>h.includes('return'));
-                if (iName<0||iPhys<0) { console.warn('[inv] Sheet missing columns'); ST.sheetSyncStatus='bad_format'; return; }
+                const iName=hdr.findIndex(h=>h.includes('product')||h.includes('name'));
+                // Try header match first, fall back to positional (B=1, C=2, D=3, E=4)
+                let iPhys=hdr.findIndex(h=>h.includes('opening')||h.includes('physical'));
+                let iQcPass=hdr.findIndex(h=>h.includes('qc pass')||h.includes('return'));
+                let iDmg=hdr.findIndex(h=>h.includes('damage'));
+                let iNet=hdr.findIndex(h=>h.includes('net')||h.includes('closing'));
+                if (iPhys<0) iPhys=1; if (iQcPass<0) iQcPass=2; if (iDmg<0) iDmg=3; if (iNet<0) iNet=4;
+                if (iName<0) { console.warn('[inv] Sheet missing product column'); ST.sheetSyncStatus='bad_format'; return; }
                 // Build upsert batch
                 const batch = [];
                 for (let i=1;i<rows.length;i++) {
                     const r=rows[i]; if (!r[iName]) continue;
                     const name=(r[iName]||'').trim().replace(/​/g,'');
                     const phys=parseInt(r[iPhys])||0;
-                    const ret=iRet>=0?parseInt(r[iRet])||0:0;
+                    const qcPass=parseInt(r[iQcPass])||0;
+                    const dmg=parseInt(r[iDmg])||0;
                     if (!name) continue;
-                    batch.push({product_name:name,physical_stock:phys,returns_received:ret});
+                    batch.push({product_name:name,physical_stock:phys,returns_received:qcPass,damaged:dmg});
                 }
                 // Upsert to master_inventory
                 if (batch.length>0 && ST.hasSupabaseTables.master) {
@@ -6690,9 +6697,9 @@
                         try {
                             const existing = await invSq('master_inventory',`?product_name=eq.${encodeURIComponent(b.product_name)}&select=id`);
                             if (existing.rows && existing.rows.length>0) {
-                                await fetch(`${SUPABASE_URL}/rest/v1/master_inventory?id=eq.${existing.rows[0].id}`, {method:'PATCH',headers:{...HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({physical_stock:b.physical_stock,returns_received:b.returns_received})});
+                                await fetch(`${SUPABASE_URL}/rest/v1/master_inventory?id=eq.${existing.rows[0].id}`, {method:'PATCH',headers:{...HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({physical_stock:b.physical_stock,returns_received:b.returns_received,damaged:b.damaged})});
                             } else {
-                                await fetch(`${SUPABASE_URL}/rest/v1/master_inventory`, {method:'POST',headers:{...HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({product_name:b.product_name,physical_stock:b.physical_stock,returns_received:b.returns_received,brand_id:'dellulu'})});
+                                await fetch(`${SUPABASE_URL}/rest/v1/master_inventory`, {method:'POST',headers:{...HEADERS,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({product_name:b.product_name,physical_stock:b.physical_stock,returns_received:b.returns_received,damaged:b.damaged,brand_id:'dellulu'})});
                             }
                         } catch(e) { console.warn('[inv] Upsert failed for',b.product_name,e); }
                     }
@@ -6862,7 +6869,7 @@
                 ST.snapshots[p.id]={
                     master_inventory_id:p.id, snapshot_date:ST.todayIST,
                     physical_stock:p._physStock||0, returns_received:p._returnsRecv||0,
-                    restockable_qty:p._restockQc||0, damaged_qty:p._damaged||0,
+                    restockable_qty:p._returnsRecv||0, damaged_qty:p._damaged||0,
                     shopify_qty:p._shopifyQty!=null?p._shopifyQty:null
                 };
             });
@@ -6910,11 +6917,12 @@
             const cfg=ST.config;
             return ST.products.map(p=>{
                 const snap=ST.snapshots[p.id]||{}; const phys=+snap.physical_stock||0;
-                const returnsRecv=+snap.returns_received||0; const restockQc=+snap.restockable_qty||0;
-                const damaged=+snap.damaged_qty||Math.max(0,returnsRecv-restockQc);
+                const returnsRecv=+snap.returns_received||0; const restockQc=returnsRecv;
+                const damaged=+snap.damaged_qty||0;
                 const shopifyQty=snap.shopify_qty==null||snap.shopify_qty===''?null:+snap.shopify_qty;
-                const net=phys+restockQc;
-                const returnRate=returnsRecv>0?(damaged/returnsRecv)*100:null;
+                const net=phys+returnsRecv; // Net = Opening + QC Pass Returns
+                const totalReturns=returnsRecv+damaged;
+                const returnRate=totalReturns>0?(damaged/totalReturns)*100:null;
                 const cogs=+p.cost_per_item||0;
                 const sellAgg=ST.perProductSell[p.product_id];
                 const sellPrice=(sellAgg&&sellAgg.sumQ>0)?(sellAgg.sumPxQ/sellAgg.sumQ):0;
@@ -6948,8 +6956,8 @@
         function fieldValue(r,field) {
             switch(field){
                 case 'product':return null; case 'phys':return{type:'input',val:r.phys}; case 'returnsRecv':return{type:'input',val:r.returnsRecv};
-                case 'restockQc':return{type:'input',val:r.restockQc}; case 'damaged':return{type:'plain',val:r.damaged||0};
-                case 'returnRate':return{type:'plain',val:r.returnRate==null?'–':fmtN(r.returnRate,1)+'%'}; case 'net':return{type:'plain',val:'<b>'+r.net+'</b>'};
+                case 'damaged':return{type:'plain',val:r.damaged||0};
+                case 'returnRate':return{type:'plain',val:r.returnRate==null?'–':fmtN(r.returnRate,1)+'%'}; case 'net':return{type:'plain',val:'<b>'+r.net+'</b>' + (r.net>0?'<span class="inv-multistore-icon" title="Warehouse-level stock · Multi-store split not yet tracked">⊞</span>':'')};
                 case 'cogs':return{type:'plain',val:fmtR(r.cogs)}; case 'sellPrice':return{type:'plain',val:r.sellPrice>0?fmtR(r.sellPrice):'–'};
                 case 'margin':return{type:'plain',val:r.margin==null?'–':'<b>'+fmtN(r.margin,1)+'%</b>'}; case 'invCost':return{type:'plain',val:fmtR(r.invCost)};
                 case 'invRetail':return{type:'plain',val:fmtR(r.invRetail)}; case 'v7':return{type:'plain',val:fmtN(r.v7,1)}; case 'v14':return{type:'plain',val:fmtN(r.v14,1)};
@@ -7055,11 +7063,11 @@
                 if (!e.target.classList.contains('inv-cell-input')) return;
                 const tr=e.target.closest('tr'); const mid=tr.dataset.invMid; const field=e.target.dataset.invField;
                 const val=e.target.value===''?null:+e.target.value;
-                const colMap={phys:'physical_stock',returnsRecv:'returns_received',restockQc:'restockable_qty',shopifyQty:'shopify_qty'};
+                const colMap={phys:'physical_stock',returnsRecv:'returns_received',shopifyQty:'shopify_qty'};
                 const snapField=colMap[field]; if (!snapField) return;
                 if (!ST.snapshots[mid]) ST.snapshots[mid]={master_inventory_id:mid,snapshot_date:ST.todayIST};
                 ST.snapshots[mid][snapField]=val;
-                if (snapField==='returns_received'||snapField==='restockable_qty') { const s=ST.snapshots[mid]; s.damaged_qty=Math.max(0,(+s.returns_received||0)-(+s.restockable_qty||0)); }
+                // Damaged comes from sheet, not computed from returns anymore
                 if (!ST.hasSupabaseTables.snapshots) try { localStorage.setItem('dellulu.inv.snapshots.'+ST.todayIST,JSON.stringify(ST.snapshots)); } catch {}
                 clearTimeout(window.__invRerenderT); window.__invRerenderT=setTimeout(renderTable,300);
             });
@@ -7076,7 +7084,7 @@
                 const btn=document.getElementById('invBtnSave'); btn.disabled=true;
                 try {
                     if (ST.hasSupabaseTables.snapshots) {
-                        const rows=Object.values(ST.snapshots).map(s=>({snapshot_date:ST.todayIST,master_inventory_id:s.master_inventory_id,physical_stock:+s.physical_stock||0,returns_received:+s.returns_received||0,restockable_qty:+s.restockable_qty||0,damaged_qty:+s.damaged_qty||0,shopify_qty:s.shopify_qty==null||s.shopify_qty===''?null:+s.shopify_qty,updated_by:'dashboard-inv-v2'})).filter(r=>r.master_inventory_id);
+                        const rows=Object.values(ST.snapshots).map(s=>({snapshot_date:ST.todayIST,master_inventory_id:s.master_inventory_id,physical_stock:+s.physical_stock||0,returns_received:+s.returns_received||0,restockable_qty:+s.returns_received||0,damaged_qty:+s.damaged_qty||0,shopify_qty:s.shopify_qty==null||s.shopify_qty===''?null:+s.shopify_qty,updated_by:'dashboard-inv-v3'})).filter(r=>r.master_inventory_id);
                         if (rows.length>0) { const r=await fetch(SUPABASE_URL+'/rest/v1/inventory_snapshots?on_conflict=snapshot_date,master_inventory_id',{method:'POST',headers:{...headers,Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(rows)}); if (!r.ok) throw new Error('save '+r.status); }
                     } else { try { localStorage.setItem('dellulu.inv.snapshots.'+ST.todayIST,JSON.stringify(ST.snapshots)); } catch {} }
                     btn.textContent='Saved!'; setTimeout(()=>{btn.textContent='Save';btn.disabled=false;},2000);
@@ -7106,9 +7114,9 @@
             });
             document.getElementById('invBtnExport').addEventListener('click',()=>{
                 const rows=buildRows();
-                const h=['SKU','Name','Source','PhysStock','Returns','Restock','Damaged','NetAvail','COGS','SellPrice','Margin%','InvCost','30dVel','PERTVel','DaysPERT','Status','Action','Movement','ReorderQty','DeadStockVal','ShopifyQty','Variance','AdSpend30d','Rev30d','ROAS','CPA'];
+                const h=['SKU','Name','Source','OpeningStock','ReturnsQCPass','ReturnsDamaged','NetInventory','COGS','SellPrice','Margin%','InvCost','30dVel','PERTVel','DaysPERT','Status','Action','Movement','ReorderQty','DeadStockVal','ShopifyQty','Variance','AdSpend30d','Rev30d','ROAS','CPA'];
                 const lines=[h.join(',')];
-                rows.forEach(r=>lines.push([r.p.sku||'',`"${(r.p.name||'').replace(/"/g,'""')}"`,r.p._matched?'shopify':'sheet',r.phys,r.returnsRecv,r.restockQc,r.damaged,r.net,r.cogs.toFixed(0),r.sellPrice.toFixed(0),r.margin==null?'':r.margin.toFixed(1),r.invCost.toFixed(0),r.v30.toFixed(2),r.pertVel.toFixed(2),r.daysPert==null?'':r.daysPert.toFixed(0),r.status,r.reorderAlert,r.movement,r.reorderQty,r.deadStockValue.toFixed(0),r.shopifyQty==null?'':r.shopifyQty,r.variance==null?'':r.variance,r.adSpend30d.toFixed(0),r.rev30d.toFixed(0),r.roas==null?'':r.roas.toFixed(2),r.cpa==null?'':r.cpa.toFixed(0)].join(',')));
+                rows.forEach(r=>lines.push([r.p.sku||'',`"${(r.p.name||'').replace(/"/g,'""')}"`,r.p._matched?'shopify':'sheet',r.phys,r.returnsRecv,r.damaged,r.net,r.cogs.toFixed(0),r.sellPrice.toFixed(0),r.margin==null?'':r.margin.toFixed(1),r.invCost.toFixed(0),r.v30.toFixed(2),r.pertVel.toFixed(2),r.daysPert==null?'':r.daysPert.toFixed(0),r.status,r.reorderAlert,r.movement,r.reorderQty,r.deadStockValue.toFixed(0),r.shopifyQty==null?'':r.shopifyQty,r.variance==null?'':r.variance,r.adSpend30d.toFixed(0),r.rev30d.toFixed(0),r.roas==null?'':r.roas.toFixed(2),r.cpa==null?'':r.cpa.toFixed(0)].join(',')));
                 const blob=new Blob([lines.join('\n')],{type:'text/csv'}); const a=document.createElement('a');
                 a.href=URL.createObjectURL(blob); a.download=`dellulu-inventory-${ST.todayIST}.csv`; a.click(); URL.revokeObjectURL(a.href);
             });
