@@ -6781,17 +6781,16 @@
                     pricingRowCount++;
                 }
                 if (pricingMap.size===0) { ST.pricingSyncStatus='no_data'; return; }
-                // Match against master_inventory products and update cost_price
+                // Match against master_inventory products and batch-update cost_price
                 if (!ST.hasSupabaseTables.master) { ST.pricingSyncStatus='no_table'; return; }
                 const allMasters = await invSq('master_inventory','?select=id,product_name');
                 const masters = allMasters.rows||[];
                 let matched=0, unmatched=0;
                 const unmatchedNames = [];
+                const updates = []; // collect all updates for batch
                 for (const m of masters) {
                     const key = normName(m.product_name);
-                    // Try exact normalized match first
                     let pricing = pricingMap.get(key);
-                    // Fuzzy fallback — try all pricing names and pick best match
                     if (!pricing) {
                         let bestScore=0, bestEntry=null;
                         for (const [pKey, pVal] of pricingMap) {
@@ -6801,14 +6800,19 @@
                         if (bestScore>=0.7) pricing=bestEntry;
                     }
                     if (pricing && pricing.cost!=null && pricing.cost>0) {
-                        try {
-                            await fetch(`${SUPABASE_URL}/rest/v1/master_inventory?id=eq.${m.id}`, {
-                                method:'PATCH', headers:{...headers,'Content-Type':'application/json','Prefer':'return=minimal'},
-                                body:JSON.stringify({cost_price:pricing.cost})
-                            });
-                            matched++;
-                        } catch(e) { console.warn('[inv] Pricing update failed for',m.product_name,e); }
+                        updates.push({id:m.id, cost_price:pricing.cost});
+                        matched++;
                     } else { unmatched++; unmatchedNames.push(m.product_name); }
+                }
+                // Batch update — single POST with upsert instead of N individual PATCHes
+                if (updates.length>0) {
+                    try {
+                        // Supabase upsert: POST with on_conflict=id, merge-duplicates
+                        await fetch(`${SUPABASE_URL}/rest/v1/master_inventory?on_conflict=id`, {
+                            method:'POST', headers:{...headers,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+                            body:JSON.stringify(updates)
+                        });
+                    } catch(e) { console.warn('[inv] Pricing batch update failed:',e); }
                 }
                 ST.pricingSyncStatus='ok'; ST.pricingSyncMatched=matched; ST.pricingSyncUnmatched=unmatched;
                 ST.pricingSyncTotal=pricingRowCount; ST.pricingSyncUnmatchedNames=unmatchedNames;
@@ -6918,12 +6922,26 @@
             ST.shopifyProducts = p.rows||[];
             const productsById = new Map(); ST.shopifyProducts.forEach(x => productsById.set(x.id, x));
             const productsByName = new Map(); ST.shopifyProducts.forEach(x => productsByName.set(normName(x.name), x));
+            // Fuzzy name match fallback for short inventory names vs long Shopify titles
+            function fuzzyProductMatch(invName) {
+                const key = normName(invName);
+                // Exact match first
+                const exact = productsByName.get(key);
+                if (exact) return exact;
+                // Fuzzy match — Dice coefficient on bigrams
+                let bestScore=0, bestProd=null;
+                for (const sp of ST.shopifyProducts) {
+                    const score = fuzzyScore(key, normName(sp.name));
+                    if (score>bestScore) { bestScore=score; bestProd=sp; }
+                }
+                return bestScore>=0.5 ? bestProd : null;
+            }
             if (masters.length === 0) {
-                ST.products = MASTER_SEED.map((m,i) => { const match=productsByName.get(normName(m.product_name)); return { id:'seed-'+i, master_inventory_id:'seed-'+i, product_id:match?.id||null, name:m.product_name.trim(), product_name:m.product_name, sku:match?.sku||null, cost_per_item:+match?.cost_per_item||0, _sheetCost:0, _shopifySellPrice:+match?.sku_price||0, is_active:true, _matched:!!match, _seedQty:m.physical_stock, _physStock:m.physical_stock, _returnsRecv:0 }; });
+                ST.products = MASTER_SEED.map((m,i) => { const match=fuzzyProductMatch(m.product_name); return { id:'seed-'+i, master_inventory_id:'seed-'+i, product_id:match?.id||null, name:m.product_name.trim(), product_name:m.product_name, sku:match?.sku||null, cost_per_item:+match?.cost_per_item||0, _sheetCost:0, _shopifySellPrice:+match?.sku_price||0, is_active:true, _matched:!!match, _seedQty:m.physical_stock, _physStock:m.physical_stock, _returnsRecv:0 }; });
             } else {
                 ST.products = masters.map(m => {
                     const linked = m.product_id ? productsById.get(m.product_id) : null;
-                    const nameMatch = !linked ? productsByName.get(normName(m.product_name)) : null;
+                    const nameMatch = !linked ? fuzzyProductMatch(m.product_name) : null;
                     const match = linked || nameMatch;
                     return { id:m.id, master_inventory_id:m.id, product_id:m.product_id||match?.id||null, name:(m.product_name||'').trim(), product_name:m.product_name, sku:match?.sku||null, cost_per_item:+match?.cost_per_item||0, _sheetCost:+m.cost_price||0, _shopifySellPrice:+match?.sku_price||0, is_active:true, _matched:!!match, _physStock:+m.physical_stock||0, _returnsRecv:+m.returns_received||0, _restockQc:+m.restock_qc||0, _damaged:+m.damaged||0, _shopifyQty:m.shopify_qty };
                 });
