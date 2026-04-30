@@ -1099,14 +1099,20 @@
         .inv-alert-banner{margin-bottom:14px;padding:12px 16px;background:rgba(var(--red-rgb),0.06);border:1px solid rgba(var(--red-rgb),0.2);color:var(--red);border-radius:12px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px;}
         .inv-table-wrap{background:var(--surface);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04);margin-bottom:16px;overflow:hidden;}
         .inv-table-wrap .inv-table-scroll{overflow-x:auto;max-height:calc(100vh - 320px);overflow-y:auto;}
-        .inv-table-wrap table{width:100%;border-collapse:collapse;font-size:12px;}
-        .inv-table-wrap thead{position:sticky;top:0;z-index:5;}
+        .inv-table-wrap table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px;}
+        .inv-table-wrap thead{position:sticky;top:0;z-index:10;}
         .inv-table-wrap th{background:rgba(var(--purple-rgb),0.04);padding:10px;text-align:left;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text);border-bottom:1px solid var(--border);white-space:nowrap;cursor:default;}
         body.dark-mode .inv-table-wrap th{background:rgba(var(--purple-rgb),0.08);}
         .inv-table-wrap th.right,.inv-table-wrap td.right{text-align:right;}
         .inv-table-wrap th.center,.inv-table-wrap td.center{text-align:center;}
         .inv-table-wrap td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--text-sec);white-space:nowrap;}
         .inv-table-wrap tbody tr:hover td{background:rgba(var(--purple-rgb),0.02);color:var(--text);}
+        /* Sticky first column (Product) */
+        .inv-table-wrap th.inv-sticky,.inv-table-wrap td.inv-sticky{position:sticky;left:0;z-index:6;background:var(--surface);box-shadow:2px 0 4px rgba(0,0,0,0.04);}
+        .inv-table-wrap thead th.inv-sticky{z-index:12;background:rgba(var(--purple-rgb),0.04);}
+        body.dark-mode .inv-table-wrap thead th.inv-sticky{background:rgba(var(--purple-rgb),0.08);}
+        body.dark-mode .inv-table-wrap td.inv-sticky{background:var(--surface);}
+        .inv-table-wrap tbody tr:hover td.inv-sticky{background:rgba(var(--purple-rgb),0.02);}
         .inv-table-wrap th.inv-grp{cursor:pointer;user-select:none;transition:0.15s;}
         .inv-table-wrap th.inv-grp:hover{color:var(--purple);}
         .inv-table-wrap th.inv-grp .inv-grp-tog{display:inline-block;margin-right:4px;font-size:8px;transition:transform 0.2s;opacity:0.5;}
@@ -6666,41 +6672,52 @@
         ].map(([n,q])=>({product_name:n,physical_stock:q}));
 
         const COL_GROUPS = [
-            { key:'product', primary:{ field:'product', label:'Product' } },
-            { key:'phys', primary:{ field:'phys', label:'Opening Stock', edit:true, align:'right' } },
-            { key:'returns', label:'Returns', collapsible:true,
-              primary:{ field:'returnsRecv', label:'Returns', edit:true, align:'right' },
-              secondary:[ { field:'damaged',label:'Damaged',align:'right' }, { field:'returnRate',label:'Damage %',align:'right' } ] },
-            { key:'net', primary:{ field:'net', label:'Net Inventory', align:'right', bold:true } },
-            { key:'sellPrice', primary:{ field:'sellPrice', label:'Sell Price', align:'right' } },
+            // ── Always visible: 9 primary columns ──
+            { key:'product', primary:{ field:'product', label:'Product' }, sticky:true },
+            { key:'stock', primary:{ field:'net', label:'Stock', align:'right', bold:true } },
             { key:'cogs', primary:{ field:'cogs', label:'COGS', align:'right' } },
-            { key:'status', primary:{ field:'status', label:'Status', align:'center' } },
-            { key:'invCost', primary:{ field:'invCost', label:'Inv @ Cost', align:'right' } },
-            { key:'invRetail', primary:{ field:'invRetail', label:'Inv @ Retail', align:'right' } },
+            { key:'sellPrice', primary:{ field:'sellPrice', label:'Sell Price', align:'right' } },
             { key:'margin', primary:{ field:'margin', label:'Margin %', align:'right', bold:true } },
-            { key:'roas', primary:{ field:'roas', label:'ROAS', align:'right', bold:true } },
-            { key:'velocity', label:'Velocity', collapsible:true,
-              primary:{ field:'pertVel', label:'PERT Vel', align:'right', bold:true },
-              secondary:[ { field:'v7',label:'7d',align:'right' }, { field:'v14',label:'14d',align:'right' }, { field:'v30',label:'30d',align:'right' } ] },
-            { key:'days', label:'Days of Stock', collapsible:true,
-              primary:{ field:'daysPert', label:'Days (PERT)', align:'right', bold:true },
-              secondary:[ { field:'daysOpt',label:'Optimistic',align:'right' }, { field:'daysLik',label:'Likely',align:'right' }, { field:'daysPess',label:'Pessimistic',align:'right' } ] },
+            { key:'pertVel', primary:{ field:'pertVel', label:'Velocity', align:'right', bold:true } },
+            { key:'daysLeft', primary:{ field:'daysPert', label:'Days Left', align:'right', bold:true } },
+            { key:'status', primary:{ field:'status', label:'Status', align:'center' } },
             { key:'action', primary:{ field:'reorderAlert', label:'Action', align:'center' } },
+            // ── Collapsible detail groups ──
+            { key:'stockDetail', label:'Stock Detail', collapsible:true,
+              primary:{ field:'phys', label:'Opening', edit:true, align:'right' },
+              secondary:[
+                { field:'returnsRecv',label:'Returns',edit:true,align:'right' },
+                { field:'damaged',label:'Damaged',align:'right' },
+                { field:'invCost',label:'Inv @ Cost',align:'right' },
+                { field:'invRetail',label:'Inv @ Retail',align:'right' }
+              ] },
+            { key:'velocityDetail', label:'Velocity Detail', collapsible:true,
+              primary:{ field:'v30', label:'30d', align:'right' },
+              secondary:[
+                { field:'v7',label:'7d',align:'right' },
+                { field:'v14',label:'14d',align:'right' },
+                { field:'daysSinceSale',label:'Last Sale',align:'right' },
+                { field:'movement',label:'Movement',align:'center' }
+              ] },
             { key:'reorder', label:'Reorder', collapsible:true,
               primary:{ field:'reorderQty', label:'Order Qty', align:'right', bold:true },
-              secondary:[ { field:'reorderPoint',label:'ROP',align:'right' } ] },
-            { key:'movement', label:'Movement', collapsible:true,
-              primary:{ field:'movement', label:'Movement', align:'center' },
-              secondary:[ { field:'daysSinceSale',label:'Days Since Sale',align:'right' }, { field:'deadStockValue',label:'Dead Stock Val',align:'right' } ] },
-            { key:'forecast', label:'Forecast', collapsible:true,
-              primary:{ field:'stockoutDate', label:'Stockout Date', align:'center' },
-              secondary:[ { field:'forecast4w',label:'4w Forecast',align:'right' } ] },
-            { key:'shopify', label:'Shopify', collapsible:true,
-              primary:{ field:'variance', label:'Variance', align:'right' },
-              secondary:[ { field:'shopifyQty',label:'Shopify Qty',edit:true,align:'right' } ] },
+              secondary:[
+                { field:'reorderPoint',label:'ROP',align:'right' },
+                { field:'stockoutDate',label:'Stockout Date',align:'center' },
+                { field:'forecast4w',label:'4w Forecast',align:'right' }
+              ] },
             { key:'marketing', label:'Marketing', collapsible:true,
-              primary:{ field:'adSpend30d', label:'Ad Spend 30d', align:'right' },
-              secondary:[ { field:'cpa',label:'CPA',align:'right' }, { field:'rev30d',label:'Rev 30d',align:'right' } ] }
+              primary:{ field:'adSpend30d', label:'Ad Spend', align:'right' },
+              secondary:[
+                { field:'rev30d',label:'Revenue',align:'right' },
+                { field:'roas',label:'ROAS',align:'right' },
+                { field:'cpa',label:'CPA',align:'right' }
+              ] },
+            { key:'shopify', label:'Shopify', collapsible:true,
+              primary:{ field:'shopifyQty', label:'Shopify Qty', edit:true, align:'right' },
+              secondary:[
+                { field:'variance',label:'Variance',align:'right' }
+              ] }
         ];
 
         const ST = {
@@ -7018,7 +7035,7 @@
             if (orderIds.length===0) { console.warn('[inv-velocity] No orders found — velocity will be 0 for all products'); return; }
             for (let i=0;i<orderIds.length;i+=100) {
                 const chunk=orderIds.slice(i,i+100);
-                const r=await invSq('order_items', `?select=order_id,product_id,quantity,price&order_id=in.(${chunk.join(',')})`);
+                const r=await invSq('order_items', `?select=order_id,product_id,quantity,unit_price&order_id=in.(${chunk.join(',')})`);
                 ST.items.push(...(r.rows||[]));
             }
             console.log(`[inv-velocity] ${ST.items.length} order items loaded, ${ST.items.filter(x=>x.product_id).length} with product_id`);
@@ -7027,7 +7044,7 @@
             for (const it of ST.items) {
                 const od=dateMap.get(it.order_id); if (!od||od<cutoff30) continue;
                 const pid=it.product_id; if (!pid) continue;
-                const qty=+it.quantity||0, price=+it.price||0;
+                const qty=+it.quantity||0, price=+it.unit_price||0;
                 if (!ST.perProductSell[pid]) ST.perProductSell[pid]={sumPxQ:0,sumQ:0};
                 ST.perProductSell[pid].sumPxQ+=price*qty; ST.perProductSell[pid].sumQ+=qty;
                 ST.perProductRev[pid]=(ST.perProductRev[pid]||0)+price*qty;
@@ -7146,7 +7163,7 @@
             switch(field){
                 case 'product':return null; case 'phys':return{type:'input',val:r.phys}; case 'returnsRecv':return{type:'input',val:r.returnsRecv};
                 case 'damaged':return{type:'plain',val:r.damaged||0};
-                case 'returnRate':return{type:'plain',val:r.returnRate==null?'–':fmtN(r.returnRate,1)+'%'}; case 'net':return{type:'plain',val:'<b>'+r.net+'</b>' + (r.net>0?'<span class="inv-multistore-icon" title="Warehouse-level stock · Multi-store split not yet tracked">⊞</span>':'')};
+                case 'returnRate':return{type:'plain',val:r.returnRate==null?'–':fmtN(r.returnRate,1)+'%'}; case 'net':return{type:'plain',val:'<b>'+r.net+'</b>'};
                 case 'cogs':return{type:'plain',val:r.cogs>0?fmtR(r.cogs):'–'}; case 'sellPrice':return{type:'plain',val:r.sellPrice>0?fmtR(r.sellPrice):'–'};
                 case 'margin':return{type:'plain',val:r.margin==null?'–':'<b>'+fmtN(r.margin,1)+'%</b>'}; case 'invCost':return{type:'plain',val:r.invCost>0?fmtR(r.invCost):'–'};
                 case 'invRetail':return{type:'plain',val:r.invRetail>0?fmtR(r.invRetail):'–'}; case 'v7':return{type:'plain',val:fmtN(r.v7,1)}; case 'v14':return{type:'plain',val:fmtN(r.v14,1)};
@@ -7172,7 +7189,8 @@
         }
 
         function cellHtml(r,c) {
-            if (c.field==='product') return `<td><div class="inv-sku-cell"><div class="inv-sku-name" title="${r.p.name||''}">${r.p.name||''}</div><div class="inv-sku-code"><span class="inv-src-tag ${r.p._matched?'shopify':'sheet'}">${r.p._matched?'shopify':'sheet'}</span>${r.p.sku||'—'}</div></div></td>`;
+            const stickyClass = c.field==='product' ? ' inv-sticky' : '';
+            if (c.field==='product') return `<td class="inv-sticky"><div class="inv-sku-cell"><div class="inv-sku-name" title="${r.p.name||''}">${r.p.name||''}</div><div class="inv-sku-code"><span class="inv-src-tag ${r.p._matched?'shopify':'sheet'}">${r.p._matched?'shopify':'sheet'}</span>${r.p.sku||'—'}</div></div></td>`;
             const v=fieldValue(r,c.field); let cls='';
             if (c.align==='right') cls+='right '; if (c.align==='center') cls+='center '; if (!c.primary) cls+='sub ';
             if (v.type==='input') return `<td class="${cls.trim()}"><input class="inv-cell-input inv-editable" type="number" data-inv-field="${c.field}" value="${v.val||''}" min="0" placeholder="${v.placeholder||''}"></td>`;
@@ -7185,6 +7203,7 @@
             const cols=visibleCols();
             document.getElementById('invThead').innerHTML='<tr>'+cols.map(c=>{
                 const g=COL_GROUPS.find(x=>x.key===c.group); let cls='';
+                if (c.field==='product') cls+='inv-sticky ';
                 if (c.align==='right') cls+='right '; if (c.align==='center') cls+='center ';
                 if (g.collapsible&&c.primary) { const exp=ST.expanded.has(g.key); cls+='inv-grp '+(exp?'expanded':''); return `<th class="${cls.trim()}" data-inv-group="${g.key}"><span class="inv-grp-tog">&#9654;</span>${c.label}</th>`; }
                 if (!c.primary) cls+='sub '; return `<th class="${cls.trim()}">${c.label}</th>`;
@@ -7231,18 +7250,19 @@
             const totalCost=rows.reduce((a,r)=>a+r.invCost,0); const totalRetail=rows.reduce((a,r)=>a+r.invRetail,0);
             const totalUnits=rows.reduce((a,r)=>a+r.net,0); const critical=rows.filter(r=>r.status==='stockout'||r.status==='critical').length;
             const reorderNow=rows.filter(r=>r.reorderAlert==='order_now'||r.reorderAlert==='reorder').length;
-            const deadVal=rows.reduce((a,r)=>a+r.deadStockValue,0); const deadCount=rows.filter(r=>r.movement!=='active').length;
+            const activeCount=rows.filter(r=>r.movement==='active').length;
+            const deadVal=rows.reduce((a,r)=>a+r.deadStockValue,0); const deadCount=rows.filter(r=>r.movement==='dead').length; const slowCount=rows.filter(r=>r.movement==='slow').length;
             const variances=rows.filter(r=>r.varianceFlag).length;
             const totalAdSpend=rows.reduce((a,r)=>a+r.adSpend30d,0); const totalRev=rows.reduce((a,r)=>a+r.rev30d,0);
             const blendedRoas=totalAdSpend>0?(totalRev/totalAdSpend):null;
             const totalReturns=rows.reduce((a,r)=>a+(r.returnsRecv||0),0); const totalDamaged=rows.reduce((a,r)=>a+(r.damaged||0),0);
             const avgMargin=rows.filter(r=>r.margin!=null); const avgM=avgMargin.length>0?(avgMargin.reduce((a,r)=>a+r.margin,0)/avgMargin.length):0;
+            const topVel=rows.filter(r=>r.pertVel>0).sort((a,b)=>b.pertVel-a.pertVel).slice(0,3).map(r=>r.p.name.split(/[\s(]/)[0]).join(', ');
             document.getElementById('invKpis').innerHTML=`
-                <div class="kpi-card purple"><div class="kpi-top"><span class="kpi-label">Inv @ Cost</span><span class="kpi-icon-sm">📦</span></div><div class="kpi-value" style="color:var(--purple)">${fmtR(totalCost)}</div><div class="kpi-context">Retail: ${fmtR(totalRetail)} · ${fmtI(totalUnits)} units</div></div>
-                <div class="kpi-card ${critical>0?'red':'green'}"><div class="kpi-top"><span class="kpi-label">Critical / Stockout</span><span class="kpi-icon-sm">⚠️</span></div><div class="kpi-value">${critical}</div><div class="kpi-context">${reorderNow} need reorder · ${rows.filter(r=>r.movement==='active').length} active</div></div>
-                <div class="kpi-card ${totalReturns>0?'gold':'teal'}"><div class="kpi-top"><span class="kpi-label">Returns</span><span class="kpi-icon-sm">↩️</span></div><div class="kpi-value">${totalReturns+totalDamaged}</div><div class="kpi-context">${totalReturns} QC pass · ${totalDamaged} damaged · avg margin ${fmtN(avgM,1)}%</div></div>
-                <div class="kpi-card ${deadVal>5000?'gold':'teal'}"><div class="kpi-top"><span class="kpi-label">Dead / Slow Stock</span><span class="kpi-icon-sm">📉</span></div><div class="kpi-value">${fmtR(deadVal)}</div><div class="kpi-context">${deadCount} not selling · ${variances>0?variances+' variance alerts':'no variances'}</div></div>
-                <div class="kpi-card blue"><div class="kpi-top"><span class="kpi-label">30d Ad Spend / ROAS</span><span class="kpi-icon-sm">📊</span></div><div class="kpi-value">${fmtR(totalAdSpend)}</div><div class="kpi-context">ROAS ${blendedRoas==null?'–':blendedRoas.toFixed(2)+'x'} · rev ${fmtR(totalRev)}</div></div>`;
+                <div class="kpi-card purple"><div class="kpi-top"><span class="kpi-label">Inventory Value</span><span class="kpi-icon-sm">📦</span></div><div class="kpi-value" style="color:var(--purple)">${fmtR(totalCost)}</div><div class="kpi-context">Retail: ${fmtR(totalRetail)} · ${fmtI(totalUnits)} units · avg margin ${fmtN(avgM,1)}%</div></div>
+                <div class="kpi-card ${critical>0?'red':'green'}"><div class="kpi-top"><span class="kpi-label">Stock Health</span><span class="kpi-icon-sm">⚠️</span></div><div class="kpi-value">${activeCount}<span style="font-size:14px;font-weight:400;color:var(--text-sec)"> / ${rows.length}</span></div><div class="kpi-context">${critical} critical · ${reorderNow} reorder · ${deadCount} dead · ${slowCount} slow</div></div>
+                <div class="kpi-card ${deadVal>5000?'gold':'teal'}"><div class="kpi-top"><span class="kpi-label">Dead Stock Value</span><span class="kpi-icon-sm">📉</span></div><div class="kpi-value">${fmtR(deadVal)}</div><div class="kpi-context">${totalReturns+totalDamaged} returns (${totalDamaged} damaged)${variances>0?' · '+variances+' variances':''}</div></div>
+                <div class="kpi-card blue"><div class="kpi-top"><span class="kpi-label">Velocity / Marketing</span><span class="kpi-icon-sm">📊</span></div><div class="kpi-value">${topVel||'–'}</div><div class="kpi-context">Ad spend ${fmtR(totalAdSpend)} · ROAS ${blendedRoas==null?'–':blendedRoas.toFixed(2)+'x'} · rev ${fmtR(totalRev)}</div></div>`;
             const banner=document.getElementById('invVarianceBanner');
             if (variances>0) { banner.style.display='flex'; document.getElementById('invVarianceText').textContent=`${variances} SKU${variances>1?'s':''} have physical-vs-Shopify variance > ${ST.config.variance} units.`; }
             else { banner.style.display='none'; }
@@ -7333,9 +7353,9 @@
             });
             document.getElementById('invBtnExport').addEventListener('click',()=>{
                 const rows=buildRows();
-                const h=['SKU','Name','Source','OpeningStock','ReturnsQCPass','ReturnsDamaged','NetInventory','COGS','SellPrice','Margin%','InvCost','30dVel','PERTVel','DaysPERT','Status','Action','Movement','ReorderQty','DeadStockVal','ShopifyQty','Variance','AdSpend30d','Rev30d','ROAS','CPA'];
+                const h=['Name','Source','Stock','COGS','SellPrice','Margin%','Velocity','DaysLeft','Status','Action','OpeningStock','Returns','Damaged','InvCost','InvRetail','Vel7d','Vel14d','Vel30d','LastSale','Movement','ReorderQty','ROP','StockoutDate','4wForecast','AdSpend30d','Revenue30d','ROAS','CPA','ShopifyQty','Variance'];
                 const lines=[h.join(',')];
-                rows.forEach(r=>lines.push([r.p.sku||'',`"${(r.p.name||'').replace(/"/g,'""')}"`,r.p._matched?'shopify':'sheet',r.phys,r.returnsRecv,r.damaged,r.net,r.cogs.toFixed(0),r.sellPrice.toFixed(0),r.margin==null?'':r.margin.toFixed(1),r.invCost.toFixed(0),r.v30.toFixed(2),r.pertVel.toFixed(2),r.daysPert==null?'':r.daysPert.toFixed(0),r.status,r.reorderAlert,r.movement,r.reorderQty,r.deadStockValue.toFixed(0),r.shopifyQty==null?'':r.shopifyQty,r.variance==null?'':r.variance,r.adSpend30d.toFixed(0),r.rev30d.toFixed(0),r.roas==null?'':r.roas.toFixed(2),r.cpa==null?'':r.cpa.toFixed(0)].join(',')));
+                rows.forEach(r=>lines.push([`"${(r.p.name||'').replace(/"/g,'""')}"`,r.p._matched?'shopify':'sheet',r.net,r.cogs.toFixed(0),r.sellPrice.toFixed(0),r.margin==null?'':r.margin.toFixed(1),r.pertVel.toFixed(2),r.daysPert==null?'':r.daysPert.toFixed(0),r.status,r.reorderAlert,r.phys,r.returnsRecv,r.damaged,r.invCost.toFixed(0),r.invRetail.toFixed(0),r.v7.toFixed(2),r.v14.toFixed(2),r.v30.toFixed(2),r.daysSinceSale==null?'':r.daysSinceSale,r.movement,r.reorderQty,r.reorderPoint,r.stockoutDate||'',r.forecast4w,r.adSpend30d.toFixed(0),r.rev30d.toFixed(0),r.roas==null?'':r.roas.toFixed(2),r.cpa==null?'':r.cpa.toFixed(0),r.shopifyQty==null?'':r.shopifyQty,r.variance==null?'':r.variance].join(',')));
                 const blob=new Blob([lines.join('\n')],{type:'text/csv'}); const a=document.createElement('a');
                 a.href=URL.createObjectURL(blob); a.download=`dellulu-inventory-${ST.todayIST}.csv`; a.click(); URL.revokeObjectURL(a.href);
             });
