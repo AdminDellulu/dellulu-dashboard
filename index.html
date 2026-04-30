@@ -6844,15 +6844,18 @@
                         matched++;
                     } else { unmatched++; unmatchedNames.push(m.product_name); }
                 }
-                // Batch update — single POST with upsert instead of N individual PATCHes
+                // Parallel PATCH in chunks of 10 — avoids POST upsert NOT NULL constraint issues
                 if (updates.length>0) {
-                    try {
-                        // Supabase upsert: POST with on_conflict=id, merge-duplicates
-                        await fetch(`${SUPABASE_URL}/rest/v1/master_inventory?on_conflict=id`, {
-                            method:'POST', headers:{...headers,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
-                            body:JSON.stringify(updates)
-                        });
-                    } catch(e) { console.warn('[inv] Pricing batch update failed:',e); }
+                    const CHUNK=10;
+                    for (let i=0;i<updates.length;i+=CHUNK) {
+                        const chunk=updates.slice(i,i+CHUNK);
+                        await Promise.all(chunk.map(u=>
+                            fetch(`${SUPABASE_URL}/rest/v1/master_inventory?id=eq.${u.id}`,{
+                                method:'PATCH',headers:{...headers,'Content-Type':'application/json','Prefer':'return=minimal'},
+                                body:JSON.stringify({cost_price:u.cost_price})
+                            }).catch(e=>console.warn('[inv] PATCH cost_price failed id='+u.id,e))
+                        ));
+                    }
                 }
                 ST.pricingSyncStatus='ok'; ST.pricingSyncMatched=matched; ST.pricingSyncUnmatched=unmatched;
                 ST.pricingSyncTotal=pricingRowCount; ST.pricingSyncUnmatchedNames=unmatchedNames;
