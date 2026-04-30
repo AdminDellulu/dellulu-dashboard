@@ -474,6 +474,46 @@
             .ad-metrics { gap: 8px; }
         }
 
+        /* ===== INVENTORY TOOLBAR ===== */
+        .inv-select {
+            padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border);
+            background: var(--surface); color: var(--text); font-size: 12px; font-family: inherit;
+            cursor: pointer; outline: none; transition: border-color 0.15s;
+        }
+        .inv-select:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(var(--purple-rgb),0.08); }
+        /* ===== BUTTONS ===== */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+            padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+            border: 1px solid var(--border); background: var(--surface); color: var(--text-sec);
+            cursor: pointer; transition: all 0.15s ease; white-space: nowrap; line-height: 1.3;
+        }
+        .btn:hover { background: var(--surface-2); color: var(--text); border-color: rgba(var(--purple-rgb),0.3); }
+        .btn:active { transform: scale(0.97); }
+        .btn-primary {
+            background: var(--purple); color: #fff; border-color: var(--purple);
+        }
+        .btn-primary:hover { background: var(--purple-deep); border-color: var(--purple-deep); color: #fff; }
+        .btn-icon { padding: 6px 10px; }
+        .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+        /* ===== FORM FIELDS ===== */
+        .field { display: flex; flex-direction: column; gap: 4px; }
+        .field label {
+            font-size: 11px; font-weight: 600; color: var(--text-sec);
+            text-transform: uppercase; letter-spacing: 0.3px;
+        }
+        .field input, .field select, .field textarea {
+            padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);
+            background: var(--surface-2); color: var(--text); font-size: 13px; font-family: inherit;
+            transition: border-color 0.15s, box-shadow 0.15s; outline: none;
+        }
+        .field input:focus, .field select:focus, .field textarea:focus {
+            border-color: var(--purple); box-shadow: 0 0 0 3px rgba(var(--purple-rgb),0.1);
+        }
+        .field input[type="number"] { -moz-appearance: textfield; }
+        .field input[type="number"]::-webkit-inner-spin-button { opacity: 0.5; }
+        .field textarea { resize: vertical; min-height: 60px; }
+
         /* ===== CAMPAIGN SIGNAL PILLS ===== */
         .campaign-signals {
             display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;
@@ -1354,11 +1394,11 @@
                             <option value="slow">Slow</option>
                             <option value="dead">Dead</option>
                         </select>
-                        <button class="btn" id="invBtnExpand" style="font-size:11px;padding:5px 10px;">Expand</button>
-                        <button class="btn" id="invBtnConfig" style="font-size:11px;padding:5px 10px;">Config</button>
-                        <button class="btn" id="invBtnReturns" style="font-size:11px;padding:5px 10px;">Returns</button>
-                        <button class="btn" id="invBtnExport" style="font-size:11px;padding:5px 10px;">Export</button>
-                        <button class="btn btn-primary" id="invBtnSave" style="font-size:11px;padding:5px 10px;">Save</button>
+                        <button class="btn btn-icon" id="invBtnExpand" title="Expand all rows"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
+                        <button class="btn" id="invBtnConfig"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> Config</button>
+                        <button class="btn" id="invBtnReturns"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg> Returns</button>
+                        <button class="btn" id="invBtnExport"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export</button>
+                        <button class="btn btn-primary" id="invBtnSave"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save</button>
                         <span style="color:var(--text-sec);font-size:11px;margin-left:auto;" id="invRowCount"></span>
                     </div>
 
@@ -1406,7 +1446,7 @@
 
                 <!-- Inventory Drawers (outside tab content for z-index) -->
                 <div class="drawer-overlay" id="invOverlay"></div>
-                <div class="drawer" id="invConfigDrawer">
+                <div class="drawer-panel" id="invConfigDrawer">
                     <div class="drawer-head">
                         <div class="drawer-title"><svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--purple);fill:none;stroke-width:2;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg> Inventory Config</div>
                         <button class="drawer-close" onclick="INV.closeDrawers()">&times;</button>
@@ -1423,10 +1463,10 @@
                             <div class="field"><label>Slow mover (days)</label><input type="number" data-inv-cfg="slow_days" min="0"></div>
                         </div>
                         <div class="field"><label>Variance alert threshold</label><input type="number" data-inv-cfg="variance" min="0"></div>
-                        <button class="btn btn-primary" id="invBtnSaveConfig" style="width:100%;margin-top:8px">Save Config</button>
+                        <button class="btn btn-primary" id="invBtnSaveConfig" style="width:100%;margin-top:12px;padding:10px 14px;">Save Config</button>
                     </div>
                 </div>
-                <div class="drawer" id="invReturnsDrawer">
+                <div class="drawer-panel" id="invReturnsDrawer">
                     <div class="drawer-head">
                         <div class="drawer-title"><svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--purple);fill:none;stroke-width:2;"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg> Returns Log</div>
                         <button class="drawer-close" onclick="INV.closeDrawers()">&times;</button>
@@ -1444,7 +1484,7 @@
                         </div>
                         <div class="field"><label>Reason</label><input type="text" id="invRReason" placeholder="e.g. strap broken, wrong size"></div>
                         <div class="field"><label>Notes</label><textarea id="invRNotes" rows="2"></textarea></div>
-                        <button class="btn btn-primary" id="invBtnLogReturn" style="width:100%;margin-bottom:20px">Log Return</button>
+                        <button class="btn btn-primary" id="invBtnLogReturn" style="width:100%;margin-bottom:20px;padding:10px 14px;">Log Return</button>
                         <div style="font-size:11px;color:var(--text-sec);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:10px;">Recent Returns</div>
                         <div id="invReturnsList" style="font-size:12px;"></div>
                     </div>
@@ -7249,7 +7289,7 @@
         }
 
         function invOpenDrawer(id) { document.getElementById('invOverlay').classList.add('open'); document.getElementById(id).classList.add('open'); }
-        function invCloseDrawers() { document.getElementById('invOverlay').classList.remove('open'); document.querySelectorAll('#invConfigDrawer,#invReturnsDrawer').forEach(d=>d.classList.remove('open')); }
+        function invCloseDrawers() { document.getElementById('invOverlay').classList.remove('open'); document.getElementById('invConfigDrawer').classList.remove('open'); document.getElementById('invReturnsDrawer').classList.remove('open'); }
 
         function renderReturnsLog() {
             const list=document.getElementById('invReturnsList');
