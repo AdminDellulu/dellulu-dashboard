@@ -1409,6 +1409,11 @@
                         <div class="chart-box"><div class="chart-title" style="font-size:12px;">Movement</div><div class="chart-inner"><canvas id="invChartMovement"></canvas></div></div>
                         <div class="chart-box"><div class="chart-title" style="font-size:12px;">Dead Stock Value (Top 10)</div><div class="chart-inner"><canvas id="invChartDeadStock"></canvas></div></div>
                     </div>
+                    <div class="grid-3" id="invChartsRow2" style="margin-bottom:16px;">
+                        <div class="chart-box"><div class="chart-title" style="font-size:12px;">Returns by Product (Top 10)</div><div class="chart-inner"><canvas id="invChartReturns"></canvas></div></div>
+                        <div class="chart-box"><div class="chart-title" style="font-size:12px;">Velocity Leaders (units/day)</div><div class="chart-inner"><canvas id="invChartVelocity"></canvas></div></div>
+                        <div class="chart-box"><div class="chart-title" style="font-size:12px;">Inventory Value by Product</div><div class="chart-inner"><canvas id="invChartInvValue"></canvas></div></div>
+                    </div>
 
                     <div class="inv-table-wrap">
                         <div class="inv-table-scroll">
@@ -6669,10 +6674,11 @@
             { key:'net', primary:{ field:'net', label:'Net Inventory', align:'right', bold:true } },
             { key:'sellPrice', primary:{ field:'sellPrice', label:'Sell Price', align:'right' } },
             { key:'cogs', primary:{ field:'cogs', label:'COGS', align:'right' } },
-            { key:'pricing', label:'Margin', collapsible:true,
-              primary:{ field:'margin', label:'Margin %', align:'right', bold:true },
-              secondary:[ { field:'invCost',label:'Inv @ Cost',align:'right' }, { field:'invRetail',label:'Inv @ Retail',align:'right' } ] },
             { key:'status', primary:{ field:'status', label:'Status', align:'center' } },
+            { key:'invCost', primary:{ field:'invCost', label:'Inv @ Cost', align:'right' } },
+            { key:'invRetail', primary:{ field:'invRetail', label:'Inv @ Retail', align:'right' } },
+            { key:'margin', primary:{ field:'margin', label:'Margin %', align:'right', bold:true } },
+            { key:'roas', primary:{ field:'roas', label:'ROAS', align:'right', bold:true } },
             { key:'velocity', label:'Velocity', collapsible:true,
               primary:{ field:'pertVel', label:'PERT Vel', align:'right', bold:true },
               secondary:[ { field:'v7',label:'7d',align:'right' }, { field:'v14',label:'14d',align:'right' }, { field:'v30',label:'30d',align:'right' } ] },
@@ -6693,8 +6699,8 @@
               primary:{ field:'variance', label:'Variance', align:'right' },
               secondary:[ { field:'shopifyQty',label:'Shopify Qty',edit:true,align:'right' } ] },
             { key:'marketing', label:'Marketing', collapsible:true,
-              primary:{ field:'roas', label:'ROAS', align:'right', bold:true },
-              secondary:[ { field:'adSpend30d',label:'Ad Spend 30d',align:'right' }, { field:'cpa',label:'CPA',align:'right' }, { field:'rev30d',label:'Rev 30d',align:'right' } ] }
+              primary:{ field:'adSpend30d', label:'Ad Spend 30d', align:'right' },
+              secondary:[ { field:'cpa',label:'CPA',align:'right' }, { field:'rev30d',label:'Rev 30d',align:'right' } ] }
         ];
 
         const ST = {
@@ -7008,12 +7014,14 @@
             const o = await invSq('orders', `?select=id,order_date,financial_status&order_date=gte.${since.toISOString()}&order=order_date.desc`);
             ST.orders = (o.rows||[]).filter(x => !['refunded','voided','cancelled'].includes(x.financial_status));
             const orderIds = ST.orders.map(x=>x.id); ST.items=[]; ST.perProductSell={}; ST.perProductRev={};
-            if (orderIds.length===0) return;
+            console.log(`[inv-velocity] ${ST.orders.length} orders in 35 days, ${orderIds.length} order IDs`);
+            if (orderIds.length===0) { console.warn('[inv-velocity] No orders found — velocity will be 0 for all products'); return; }
             for (let i=0;i<orderIds.length;i+=100) {
                 const chunk=orderIds.slice(i,i+100);
                 const r=await invSq('order_items', `?select=order_id,product_id,quantity,price&order_id=in.(${chunk.join(',')})`);
                 ST.items.push(...(r.rows||[]));
             }
+            console.log(`[inv-velocity] ${ST.items.length} order items loaded, ${ST.items.filter(x=>x.product_id).length} with product_id`);
             const cutoff30=new Date(); cutoff30.setDate(cutoff30.getDate()-30);
             const dateMap=new Map(ST.orders.map(o=>[o.id,new Date(o.order_date)]));
             for (const it of ST.items) {
@@ -7024,6 +7032,7 @@
                 ST.perProductSell[pid].sumPxQ+=price*qty; ST.perProductSell[pid].sumQ+=qty;
                 ST.perProductRev[pid]=(ST.perProductRev[pid]||0)+price*qty;
             }
+            console.log(`[inv-velocity] Revenue by product:`, Object.entries(ST.perProductRev).map(([k,v])=>`p${k}:₹${Math.round(v)}`).join(', '));
         }
 
         async function loadAdSpend() {
@@ -7195,6 +7204,27 @@
             const deadRows=rows.filter(r=>r.deadStockValue>0).sort((a,b)=>b.deadStockValue-a.deadStockValue).slice(0,10);
             if (ST.charts.deadStock) ST.charts.deadStock.destroy();
             ST.charts.deadStock=new Chart(document.getElementById('invChartDeadStock'),{type:'bar',data:{labels:deadRows.map(r=>r.p.name.length>16?r.p.name.substring(0,14)+'...':r.p.name),datasets:[{data:deadRows.map(r=>r.deadStockValue),backgroundColor:'rgba(124,58,237,0.6)',borderColor:'#7c3aed',borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>fmtR(ctx.parsed.x)}}},scales:{x:{beginAtZero:true,ticks:{callback:v=>'₹'+Math.round(v/1000)+'K',font:{size:9}},grid:{color:'rgba(0,0,0,0.04)'}},y:{ticks:{font:{size:9}},grid:{display:false}}}}});
+
+            // --- Returns by Product (Top 10) ---
+            const retRows=rows.filter(r=>r.returnsRecv>0||r.damaged>0).sort((a,b)=>(b.returnsRecv+b.damaged)-(a.returnsRecv+a.damaged)).slice(0,10);
+            if (ST.charts.returns) ST.charts.returns.destroy();
+            ST.charts.returns=new Chart(document.getElementById('invChartReturns'),{type:'bar',data:{labels:retRows.map(r=>r.p.name.length>16?r.p.name.substring(0,14)+'...':r.p.name),datasets:[
+                {label:'QC Pass',data:retRows.map(r=>r.returnsRecv),backgroundColor:'rgba(5,150,105,0.7)',borderRadius:3},
+                {label:'Damaged',data:retRows.map(r=>r.damaged),backgroundColor:'rgba(239,68,68,0.7)',borderRadius:3}
+            ]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{position:'top',labels:{usePointStyle:true,padding:8,font:{size:9}}}},scales:{x:{stacked:true,beginAtZero:true,ticks:{font:{size:9}},grid:{color:'rgba(0,0,0,0.04)'}},y:{stacked:true,ticks:{font:{size:9}},grid:{display:false}}}}});
+
+            // --- Velocity Leaders (Top 10 by PERT) ---
+            const velRows=rows.filter(r=>r.pertVel>0).sort((a,b)=>b.pertVel-a.pertVel).slice(0,10);
+            if (ST.charts.velocity) ST.charts.velocity.destroy();
+            ST.charts.velocity=new Chart(document.getElementById('invChartVelocity'),{type:'bar',data:{labels:velRows.map(r=>r.p.name.length>16?r.p.name.substring(0,14)+'...':r.p.name),datasets:[{data:velRows.map(r=>r.pertVel),backgroundColor:'rgba(20,184,166,0.7)',borderColor:'#14b8a6',borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.x.toFixed(1)+' units/day'}}},scales:{x:{beginAtZero:true,ticks:{font:{size:9}},grid:{color:'rgba(0,0,0,0.04)'}},y:{ticks:{font:{size:9}},grid:{display:false}}}}});
+
+            // --- Inventory Value by Product (Top 10 by cost) ---
+            const valRows=rows.filter(r=>r.invCost>0).sort((a,b)=>b.invCost-a.invCost).slice(0,10);
+            if (ST.charts.invValue) ST.charts.invValue.destroy();
+            ST.charts.invValue=new Chart(document.getElementById('invChartInvValue'),{type:'bar',data:{labels:valRows.map(r=>r.p.name.length>16?r.p.name.substring(0,14)+'...':r.p.name),datasets:[
+                {label:'@ Cost',data:valRows.map(r=>r.invCost),backgroundColor:'rgba(124,58,237,0.5)',borderRadius:3},
+                {label:'@ Retail',data:valRows.map(r=>r.invRetail),backgroundColor:'rgba(59,130,246,0.3)',borderColor:'rgba(59,130,246,0.6)',borderWidth:1,borderRadius:3}
+            ]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{position:'top',labels:{usePointStyle:true,padding:8,font:{size:9}}},tooltip:{callbacks:{label:ctx=>fmtR(ctx.parsed.x)}}},scales:{x:{beginAtZero:true,ticks:{callback:v=>'₹'+Math.round(v/1000)+'K',font:{size:9}},grid:{color:'rgba(0,0,0,0.04)'}},y:{ticks:{font:{size:9}},grid:{display:false}}}}});
         }
 
         function renderKpis(rows) {
@@ -7205,10 +7235,13 @@
             const variances=rows.filter(r=>r.varianceFlag).length;
             const totalAdSpend=rows.reduce((a,r)=>a+r.adSpend30d,0); const totalRev=rows.reduce((a,r)=>a+r.rev30d,0);
             const blendedRoas=totalAdSpend>0?(totalRev/totalAdSpend):null;
+            const totalReturns=rows.reduce((a,r)=>a+(r.returnsRecv||0),0); const totalDamaged=rows.reduce((a,r)=>a+(r.damaged||0),0);
+            const avgMargin=rows.filter(r=>r.margin!=null); const avgM=avgMargin.length>0?(avgMargin.reduce((a,r)=>a+r.margin,0)/avgMargin.length):0;
             document.getElementById('invKpis').innerHTML=`
-                <div class="kpi-card purple"><div class="kpi-top"><span class="kpi-label">Inventory @ Cost</span><span class="kpi-icon-sm">📦</span></div><div class="kpi-value" style="color:var(--purple)">${fmtR(totalCost)}</div><div class="kpi-context">${rows.length} SKUs · ${fmtI(totalUnits)} units · retail ${fmtR(totalRetail)}</div></div>
-                <div class="kpi-card ${critical>0?'red':'green'}"><div class="kpi-top"><span class="kpi-label">Critical / Stockout</span><span class="kpi-icon-sm">⚠️</span></div><div class="kpi-value">${critical}</div><div class="kpi-context">${reorderNow} need reorder · ${variances>0?variances+' variance alerts':'no variances'}</div></div>
-                <div class="kpi-card ${deadVal>5000?'gold':'teal'}"><div class="kpi-top"><span class="kpi-label">Dead / Slow Stock</span><span class="kpi-icon-sm">📉</span></div><div class="kpi-value">${fmtR(deadVal)}</div><div class="kpi-context">${deadCount} not selling · ${rows.filter(r=>r.movement==='active').length} active</div></div>
+                <div class="kpi-card purple"><div class="kpi-top"><span class="kpi-label">Inv @ Cost</span><span class="kpi-icon-sm">📦</span></div><div class="kpi-value" style="color:var(--purple)">${fmtR(totalCost)}</div><div class="kpi-context">Retail: ${fmtR(totalRetail)} · ${fmtI(totalUnits)} units</div></div>
+                <div class="kpi-card ${critical>0?'red':'green'}"><div class="kpi-top"><span class="kpi-label">Critical / Stockout</span><span class="kpi-icon-sm">⚠️</span></div><div class="kpi-value">${critical}</div><div class="kpi-context">${reorderNow} need reorder · ${rows.filter(r=>r.movement==='active').length} active</div></div>
+                <div class="kpi-card ${totalReturns>0?'gold':'teal'}"><div class="kpi-top"><span class="kpi-label">Returns</span><span class="kpi-icon-sm">↩️</span></div><div class="kpi-value">${totalReturns+totalDamaged}</div><div class="kpi-context">${totalReturns} QC pass · ${totalDamaged} damaged · avg margin ${fmtN(avgM,1)}%</div></div>
+                <div class="kpi-card ${deadVal>5000?'gold':'teal'}"><div class="kpi-top"><span class="kpi-label">Dead / Slow Stock</span><span class="kpi-icon-sm">📉</span></div><div class="kpi-value">${fmtR(deadVal)}</div><div class="kpi-context">${deadCount} not selling · ${variances>0?variances+' variance alerts':'no variances'}</div></div>
                 <div class="kpi-card blue"><div class="kpi-top"><span class="kpi-label">30d Ad Spend / ROAS</span><span class="kpi-icon-sm">📊</span></div><div class="kpi-value">${fmtR(totalAdSpend)}</div><div class="kpi-context">ROAS ${blendedRoas==null?'–':blendedRoas.toFixed(2)+'x'} · rev ${fmtR(totalRev)}</div></div>`;
             const banner=document.getElementById('invVarianceBanner');
             if (variances>0) { banner.style.display='flex'; document.getElementById('invVarianceText').textContent=`${variances} SKU${variances>1?'s':''} have physical-vs-Shopify variance > ${ST.config.variance} units.`; }
@@ -7221,6 +7254,12 @@
                 if (f.q&&!(r.p.name||'').toLowerCase().includes(f.q)&&!(r.p.sku||'').toLowerCase().includes(f.q)) return false;
                 if (f.status&&r.status!==f.status) return false; if (f.reorder&&r.reorderAlert!==f.reorder) return false;
                 if (f.movement&&r.movement!==f.movement) return false; return true;
+            });
+            // Sort: Shopify-linked products first, then by name
+            filtered.sort((a,b)=>{
+                const aShop=a.p._matched?1:0, bShop=b.p._matched?1:0;
+                if (aShop!==bShop) return bShop-aShop; // Shopify first
+                return (a.p.name||'').localeCompare(b.p.name||'');
             });
             document.getElementById('invRowCount').textContent=`${filtered.length} of ${rows.length} SKUs`;
             renderKpis(rows); renderCharts(rows); renderReorderSummary(rows);
