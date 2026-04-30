@@ -6832,12 +6832,24 @@
                     const key = normName(m.product_name);
                     let pricing = pricingMap.get(key);
                     if (!pricing) {
+                        // 1) Fuzzy bigram match (threshold 0.5)
                         let bestScore=0, bestEntry=null;
                         for (const [pKey, pVal] of pricingMap) {
                             const score = fuzzyScore(key, pKey);
                             if (score>bestScore) { bestScore=score; bestEntry=pVal; }
                         }
-                        if (bestScore>=0.7) pricing=bestEntry;
+                        if (bestScore>=0.5) pricing=bestEntry;
+                    }
+                    if (!pricing) {
+                        // 2) Token containment — if master name appears as a word in any sheet row or vice versa
+                        const keyTokens = key.split(/\s+/).filter(t=>t.length>=3);
+                        for (const [pKey, pVal] of pricingMap) {
+                            const pTokens = pKey.split(/\s+/).filter(t=>t.length>=3);
+                            // Check if any significant token from inventory is IN the sheet name or vice versa
+                            if (keyTokens.some(t=>pKey.includes(t)) || pTokens.some(t=>key.includes(t))) {
+                                pricing=pVal; break;
+                            }
+                        }
                     }
                     if (pricing && pricing.cost!=null && pricing.cost>0) {
                         updates.push({id:m.id, cost_price:pricing.cost});
@@ -7406,7 +7418,10 @@
             const syncEl = document.getElementById('invSyncTime');
             if (ST.sheetSyncStatus==='ok') {
                 let syncText='<span class="inv-sync-badge">SHEET LINKED</span> synced '+new Date().toLocaleTimeString('en-IN',{hour12:false})+' · '+ST.sheetRowCount+' SKUs';
-                if (ST.pricingSyncStatus==='ok') syncText+=` · <span class="inv-sync-badge">COGS ${ST.pricingSyncMatched}/${ST.pricingSyncMatched+ST.pricingSyncUnmatched}</span>`;
+                if (ST.pricingSyncStatus==='ok') {
+                    const cogsTitle = ST.pricingSyncUnmatched>0 ? `Missing COGS: ${(ST.pricingSyncUnmatchedNames||[]).join(', ')}` : 'All items have COGS';
+                    syncText+=` · <span class="inv-sync-badge" title="${cogsTitle}" style="cursor:help">COGS ${ST.pricingSyncMatched}/${ST.pricingSyncMatched+ST.pricingSyncUnmatched}</span>`;
+                }
                 syncEl.innerHTML=syncText;
             } else {
                 syncEl.innerHTML='<span class="inv-sync-badge stale">SHEET '+(ST.sheetSyncStatus||'N/A').toUpperCase()+'</span> '+new Date().toLocaleTimeString('en-IN',{hour12:false});
