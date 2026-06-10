@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shipping Analytics</title>
+<style>
+:root { color-scheme: light; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f3f4f8; color: #1a1a2e; }
+.topbar { background: linear-gradient(135deg, #1a1a2e 0%, #2d1b69 100%); color: #fff; padding: 16px 20px 0; }
+.topbar h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.topbar .sub { font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 12px; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.filters select, .filters input { padding: 5px 10px; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; background: rgba(255,255,255,0.1); color: #fff; font-size: 12px; }
+.filters select option { background: #1a1a2e; color: #fff; }
+.pill-row { display: flex; gap: 0; }
+.pill { padding: 5px 12px; border: 1px solid rgba(255,255,255,0.2); font-size: 11px; font-weight: 600; cursor: pointer; background: transparent; color: rgba(255,255,255,0.7); transition: all 0.15s; }
+.pill:first-child { border-radius: 6px 0 0 6px; }
+.pill:last-child { border-radius: 0 6px 6px 0; }
+.pill:not(:first-child) { border-left: none; }
+.pill.active { background: rgba(255,255,255,0.2); color: #fff; }
+.tabs { display: flex; gap: 0; overflow-x: auto; }
+.tab { padding: 10px 16px; font-size: 12px; font-weight: 600; cursor: pointer; color: rgba(255,255,255,0.5); border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; }
+.tab:hover { color: rgba(255,255,255,0.8); }
+.tab.active { color: #fff; border-bottom-color: #a78bfa; }
+.main { padding: 16px 20px; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.kpi { background: #fff; border-radius: 10px; padding: 12px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.kpi .label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-bottom: 2px; }
+.kpi .value { font-size: 20px; font-weight: 700; }
+.kpi .sub { font-size: 10px; color: #999; margin-top: 1px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+.card { background: #fff; border-radius: 10px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.card h3 { font-size: 12px; font-weight: 600; margin-bottom: 2px; color: #333; }
+.card .note { font-size: 10px; color: #999; margin-bottom: 8px; }
+.card.full { grid-column: 1 / -1; }
+.cc { position: relative; height: 220px; }
+table.dt { width: 100%; border-collapse: collapse; font-size: 11px; }
+table.dt th { text-align: left; padding: 6px 8px; border-bottom: 2px solid #eee; color: #666; font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+table.dt td { padding: 6px 8px; border-bottom: 1px solid #f3f3f3; }
+table.dt tr:hover { background: #faf8ff; }
+.badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+.bg { background: #ecfdf5; color: #059669; }
+.br { background: #fef2f2; color: #dc2626; }
+.by { background: #fffbeb; color: #d97706; }
+.bb { background: #eff6ff; color: #2563eb; }
+.bp { background: #f5f3ff; color: #7c3aed; }
+.bk { background: #f1f5f9; color: #475569; }
+.bo { background: #fff7ed; color: #ea580c; }
+.loading { text-align: center; padding: 40px; color: #999; font-size: 13px; }
+.callout { border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 12px; }
+.callout.red { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
+.callout.amber { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+.scrollt { max-height: 340px; overflow-y: auto; }
+@media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+</head>
+<body>
+<div class="topbar">
+  <h1>Shipping Analytics</h1>
+  <div class="sub">Multi-brand logistics intelligence &middot; <span id="ts">Loading...</span></div>
+  <div class="filters">
+    <select id="fBrand"><option value="all">All Brands</option><option value="Dellulu">Dellulu</option><option value="Flanq">Flanq</option><option value="SnugLlama">SnugLlama</option></select>
+    <select id="fPay"><option value="all">COD + Prepaid</option><option value="COD">COD only</option><option value="Prepaid">Prepaid only</option></select>
+    <div class="pill-row" id="pills">
+      <div class="pill" data-d="7">7D</div>
+      <div class="pill" data-d="14">14D</div>
+      <div class="pill" data-d="30">30D</div>
+      <div class="pill" data-d="90">90D</div>
+      <div class="pill active" data-d="0">All</div>
+    </div>
+    <input type="date" id="dFrom" title="From">
+    <span style="color:rgba(255,255,255,0.4);font-size:11px">to</span>
+    <input type="date" id="dTo" title="To">
+    <button onclick="refreshAll()" style="padding:5px 12px;border:1px solid rgba(255,255,255,0.3);border-radius:6px;background:rgba(255,255,255,0.15);color:#fff;font-size:11px;font-weight:600;cursor:pointer">↻ Refresh</button>
+  </div>
+  <div class="tabs" id="tabBar">
+    <div class="tab active" data-tab="command">⚡ Command Center</div>
+    <div class="tab" data-tab="overview">Overview</div>
+    <div class="tab" data-tab="rto">RTO Intelligence</div>
+    <div class="tab" data-tab="ndr">NDR & Stuck</div>
+    <div class="tab" data-tab="cod">COD & Cash</div>
+    <div class="tab" data-tab="sla">Delivery SLA</div>
+    <div class="tab" data-tab="trust">Data Trust</div>
+  </div>
+</div>
+
+<div class="main">
+  <!-- COMMAND CENTER -->
+  <div class="tab-content active" id="tc-command">
+    <div class="kpi-row" id="cm-kpis"></div>
+    <div class="grid2">
+      <div class="card full"><h3>🔥 NDR Action Queue — call these customers today</h3><div class="note">Orders currently Undelivered, sorted by attempts &amp; value. ≥3 attempts usually converts to RTO within 48h.</div><div class="scrollt"><table class="dt" id="cm-ndr"><thead><tr><th>Order#</th><th>Brand</th><th>Product</th><th>Attempts</th><th>Last Attempt</th><th>Courier</th><th>Pay</th><th>Value</th><th>State</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="card"><h3>📦 Stuck at Manifest (&gt;2 days, no pickup)</h3><div class="note">Escalate pickup with courier / warehouse.</div><div class="scrollt"><table class="dt" id="cm-stuck"><thead><tr><th>Order#</th><th>Brand</th><th>Days</th><th>Courier</th><th>Pay</th><th>Value</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="card"><h3>⏰ EDD Breached, still moving</h3><div class="note">Past promised delivery date — proactive customer comms prevents refusal-on-arrival.</div><div class="scrollt"><table class="dt" id="cm-edd"><thead><tr><th>Order#</th><th>Brand</th><th>Status</th><th>EDD</th><th>Days Over</th><th>Courier</th></tr></thead><tbody></tbody></table></div></div>
+    </div>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div class="tab-content" id="tc-overview">
+    <div class="kpi-row" id="ov-kpis"></div>
+    <div class="grid2">
+      <div class="card"><h3>Status Distribution</h3><div class="cc"><canvas id="ov-status"></canvas></div></div>
+      <div class="card"><h3>Brand Breakdown</h3><table class="dt" id="ov-brand"><thead><tr><th>Brand</th><th>Orders</th><th>Delivered</th><th>RTO%</th><th>COD%</th><th>GMV</th></tr></thead><tbody></tbody></table></div>
+      <div class="card"><h3>Carrier Performance</h3><table class="dt" id="ov-carrier"><thead><tr><th>Carrier</th><th>Orders</th><th>Deliv%</th><th>RTO%</th><th>Avg Days</th></tr></thead><tbody></tbody></table></div>
+      <div class="card"><h3>Zone Performance</h3><table class="dt" id="ov-zone"><thead><tr><th>Zone</th><th>Orders</th><th>Deliv%</th><th>RTO%</th><th>COD%</th></tr></thead><tbody></tbody></table></div>
+      <div class="card full"><h3>Weekly Volume Trend</h3><div class="cc"><canvas id="ov-weekly"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- RTO INTELLIGENCE -->
+  <div class="tab-content" id="tc-rto">
+    <div class="kpi-row" id="rt-kpis"></div>
+    <div class="grid2">
+      <div class="card full"><h3>True RTO Rate by Order Week (matured cohorts only)</h3><div class="note">Only orders ≥14 days old with a terminal outcome (Delivered / RTO Delivered) are counted — recent weeks always look deceptively good otherwise.</div><div class="cc"><canvas id="rt-weekly"></canvas></div></div>
+      <div class="card"><h3>COD vs Prepaid RTO (matured)</h3><div class="cc"><canvas id="rt-pay"></canvas></div></div>
+      <div class="card"><h3>RTO Reasons (normalized)</h3><table class="dt" id="rt-reason"><thead><tr><th>Reason</th><th>Count</th><th>% of RTOs</th></tr></thead><tbody></tbody></table></div>
+      <div class="card"><h3>RTO by Product (≥20 terminal orders)</h3><div class="scrollt"><table class="dt" id="rt-product"><thead><tr><th>Brand</th><th>Product</th><th>Terminal</th><th>RTO%</th><th>COD RTO%</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="card"><h3>RTO by State (worst first)</h3><div class="scrollt"><table class="dt" id="rt-state"><thead><tr><th>State</th><th>Terminal</th><th>RTO%</th><th>COD%</th></tr></thead><tbody></tbody></table></div></div>
+    </div>
+  </div>
+
+  <!-- NDR & STUCK -->
+  <div class="tab-content" id="tc-ndr">
+    <div class="kpi-row" id="nd-kpis"></div>
+    <div class="grid2">
+      <div class="card"><h3>NDR by Attempt Count (open Undelivered)</h3><div class="cc"><canvas id="nd-attempts"></canvas></div></div>
+      <div class="card"><h3>Outcome After First NDR</h3><div class="note">Of all orders that ever hit an NDR attempt.</div><div class="cc"><canvas id="nd-outcomes"></canvas></div></div>
+      <div class="card"><h3>NDR by Brand</h3><table class="dt" id="nd-brand"><thead><tr><th>Brand</th><th>NDR Orders</th><th>Saved (Delivered)</th><th>Lost (RTO)</th><th>Save Rate</th><th>Open</th></tr></thead><tbody></tbody></table></div>
+      <div class="card"><h3>NDR by Courier</h3><table class="dt" id="nd-courier"><thead><tr><th>Courier</th><th>NDR Orders</th><th>Save Rate</th><th>Avg Attempts</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- COD & CASH -->
+  <div class="tab-content" id="tc-cod">
+    <div class="kpi-row" id="cd-kpis"></div>
+    <div class="callout amber" id="cd-caveat">⚠️ COD remittance dates are only present in exports from June 2026 onward — "no remittance date" on older orders means <b>unknown</b>, not necessarily unpaid.</div>
+    <div class="grid2">
+      <div class="card"><h3>COD Share by Week</h3><div class="cc"><canvas id="cd-share"></canvas></div></div>
+      <div class="card"><h3>COD Cash Cycle by Brand</h3><table class="dt" id="cd-brand"><thead><tr><th>Brand</th><th>COD Delivered</th><th>Value</th><th>Remitted</th><th>Remit Value</th><th>Avg Lag</th></tr></thead><tbody></tbody></table></div>
+      <div class="card"><h3>Cash at Risk Right Now</h3><table class="dt" id="cd-risk"><thead><tr><th>Bucket</th><th>Orders</th><th>Value</th></tr></thead><tbody></tbody></table></div>
+      <div class="card"><h3>Freight &amp; Unbilled Charges by Brand</h3><table class="dt" id="cd-freight"><thead><tr><th>Brand</th><th>Billed Freight</th><th>Unbilled</th><th>RTO Charges</th><th>COD Charges</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- DELIVERY SLA -->
+  <div class="tab-content" id="tc-sla">
+    <div class="kpi-row" id="tl-kpis"></div>
+    <div class="grid2">
+      <div class="card full"><h3>Avg Delivery Days by Week</h3><div class="cc"><canvas id="tl-weekly"></canvas></div></div>
+      <div class="card"><h3>Courier SLA</h3><table class="dt" id="tl-carrier"><thead><tr><th>Carrier</th><th>Delivered</th><th>Avg</th><th>P90</th><th>EDD Breach (open)</th></tr></thead><tbody></tbody></table></div>
+      <div class="card"><h3>Delivery Time Distribution</h3><div class="cc"><canvas id="tl-dist"></canvas></div></div>
+      <div class="card"><h3>Delivery Days by Zone</h3><table class="dt" id="tl-zone"><thead><tr><th>Zone</th><th>Delivered</th><th>Avg Days</th><th>P90</th></tr></thead><tbody></tbody></table></div>
+      <div class="card"><h3>Slowest States (avg days, ≥15 delivered)</h3><table class="dt" id="tl-state"><thead><tr><th>State</th><th>Delivered</th><th>Avg Days</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- DATA TRUST -->
+  <div class="tab-content" id="tc-trust">
+    <div class="kpi-row" id="dt-kpis"></div>
+    <div class="grid2">
+      <div class="card full"><h3>Brand Sync Freshness</h3><div class="note">"Stale open" = order not in a terminal state whose status hasn't been refreshed by the latest file for that brand — treat its status as outdated.</div><table class="dt" id="dt-brand"><thead><tr><th>Brand</th><th>Rows</th><th>Order Dates</th><th>Last Sync</th><th>Open</th><th>Stale Open</th><th>Zone Missing</th><th>Mangled AWB</th></tr></thead><tbody></tbody></table></div>
+      <div class="card"><h3>Recent File Ingests</h3><div class="scrollt"><table class="dt" id="dt-files"><thead><tr><th>File</th><th>Brand</th><th>Rows</th><th>New</th><th>Changed</th><th>When</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="card"><h3>Known Caveats</h3><div style="font-size:11px;line-height:1.7;color:#555" id="dt-caveats">
+        <b>1. Excel-mangled AWBs:</b> Delhivery AWB numbers in source CSVs arrive as scientific notation (4.05944E+13) — unusable for tracking joins. Fix at source: upload exports without opening in Excel.<br>
+        <b>2. Coverage gaps:</b> file exports are date-windowed; orders outside the window keep their last-known status.<br>
+        <b>3. COD remittance:</b> field captured only from June 2026 files onward.<br>
+        <b>4. Zone field:</b> blank in most panel exports — zone analysis only covers rows where the courier returned it.
+      </div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+var CX = {};
+var curTab = 'command';
+var curBrand = 'all';
+var curPay = 'all';
+var curDays = 0;
+var loaded = {};
+var CLOSED = "('Delivered','Rto Delivered','Cancelled','Cancel Request Approved')";
+var MOVING = "('In Transit','Picked Up','Manifested','Reached At Destination','Delayed','Out For Delivery','Reached At Origin')";
+var RTO = "order_status ilike '%rto%'";
+var TERM = "(order_status ilike '%rto%' or order_status='Delivered')";
+var COLORS = ['#a78bfa','#6ee7b7','#fca5a5','#93c5fd','#fcd34d','#67e8f9','#fda4af','#bef264','#fdba74','#a5b4fc','#5eead4','#f9a8d4'];
+
+var SUPA = 'https://amnqeynggnwqktvepulv.supabase.co';
+var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFtbnFleW5nZ253cWt0dmVwdWx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MjY5OTUsImV4cCI6MjA5MDIwMjk5NX0.7YNuC6ihcaM8Ow31rnp-9IYdIlXiAVzMMU2bBzc-IDk';
+async function sql(q) {
+  var res = await fetch(SUPA + '/rest/v1/rpc/exec_shipping_sql', { method: 'POST', headers: { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ q: q }) });
+  var j = await res.json();
+  if (!res.ok) throw new Error((j && j.message) || ('HTTP ' + res.status));
+  return j || [];
+}
+function fmt(n) { return n != null ? Number(n).toLocaleString('en-IN') : '--'; }
+function pct(a, b) { return b > 0 ? (a/b*100).toFixed(1) + '%' : '0%'; }
+function inr(n) { var v = +(n||0); if (v >= 100000) return '₹' + (v/100000).toFixed(1) + 'L'; return '₹' + v.toLocaleString('en-IN', {maximumFractionDigits: 0}); }
+function days(n) { return n != null ? Number(n).toFixed(1) + 'd' : '--'; }
+function rtoBadge(p) { return '<span class="badge ' + (p>30?'br':p>18?'by':'bg') + '">' + (p!=null?(+p).toFixed(1):'--') + '%</span>'; }
+function noData(cols) { return '<tr><td colspan="'+cols+'" style="text-align:center;color:#999;padding:16px">No data</td></tr>'; }
+
+function W() {
+  var p = ["brand != 'Unknown'", "order_date <= now()"];
+  if (curBrand !== 'all') p.push("brand = '" + curBrand + "'");
+  if (curPay !== 'all') p.push("payment_method = '" + curPay + "'");
+  var f = document.getElementById('dFrom').value;
+  var t = document.getElementById('dTo').value;
+  if (curDays > 0) p.push("order_date >= now() - interval '" + curDays + " days'");
+  else if (f) p.push("order_date >= '" + f + "'::date");
+  if (t) p.push("order_date < ('" + t + "'::date + interval '1 day')");
+  return p.join(' AND ');
+}
+function destroyChart(id) { if (CX[id]) { CX[id].destroy(); delete CX[id]; } }
+function kpiHTML(items) {
+  var colors = ['#a78bfa','#6ee7b7','#fca5a5','#fcd34d','#93c5fd','#67e8f9','#fda4af','#bef264'];
+  return items.map(function(it, i) {
+    return '<div class="kpi"><div class="label">' + it[0] + '</div><div class="value" style="color:' + (it[3] || colors[i % colors.length]) + '">' + it[1] + '</div>' + (it[2] ? '<div class="sub">' + it[2] + '</div>' : '') + '</div>';
+  }).join('');
+}
+function lineChart(id, labels, datasets, opts) {
+  destroyChart(id);
+  CX[id] = new Chart(document.getElementById(id), {type:'line', data:{labels:labels, datasets:datasets.map(function(d,i){ return Object.assign({borderColor:COLORS[i%COLORS.length], backgroundColor:COLORS[i%COLORS.length]+'22', tension:0.3, borderWidth:2, pointRadius:2}, d); })}, options:Object.assign({responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{boxWidth:10,font:{size:10}}}}, scales:{y:{beginAtZero:true}}}, opts||{})});
+}
+function barChart(id, labels, data, colors, horizontal) {
+  destroyChart(id);
+  CX[id] = new Chart(document.getElementById(id), {type:'bar', data:{labels:labels, datasets:[{data:data, backgroundColor:colors||COLORS, borderWidth:0, borderRadius:4}]}, options:{indexAxis:horizontal?'y':'x', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true}, y:{beginAtZero:true}}}});
+}
+function doughnut(id, labels, data, colors) {
+  destroyChart(id);
+  CX[id] = new Chart(document.getElementById(id), {type:'doughnut', data:{labels:labels, datasets:[{data:data, backgroundColor:colors||COLORS, borderWidth:0}]}, options:{responsive:true, maintainAspectRatio:false, cutout:'55%', plugins:{legend:{position:'right', labels:{boxWidth:8, font:{size:10}, padding:4}}}}});
+}
+
+// fresh-row guard: only trust open statuses refreshed by the brand's latest file
+var FRESH = "last_snapshot_date = (select max(last_snapshot_date) from warehouse_shipments w2 where w2.brand = warehouse_shipments.brand)";
+
+// ============ COMMAND CENTER ============
+async function loadCommand() {
+  var w = W();
+  var results = await Promise.all([
+    sql("SELECT count(*) filter(where order_status NOT IN " + CLOSED + ") open_all, count(*) filter(where order_status='Undelivered' AND " + FRESH + ") ndr_n, round(sum(order_total) filter(where order_status='Undelivered' AND " + FRESH + ")::numeric,0) ndr_v, count(*) filter(where order_status='Undelivered' AND attempt_count>=3 AND " + FRESH + ") ndr3, count(*) filter(where order_status='Manifested' AND awb_assigned_date < now() - interval '2 days' AND " + FRESH + ") stuck, count(*) filter(where edd is not null AND edd < now() AND order_status IN " + MOVING + " AND " + FRESH + ") edd_breach, round(sum(order_total) filter(where payment_method='COD' AND order_status NOT IN " + CLOSED + " AND " + FRESH + ")::numeric,0) cod_open_v FROM warehouse_shipments WHERE " + w),
+    sql("SELECT order_number, brand, left(split_part(product_name,'|',1),28) product, attempt_count, to_char(last_attempt_date at time zone 'Asia/Kolkata','DD Mon') last_att, courier_company, payment_method, order_total, customer_state FROM warehouse_shipments WHERE " + w + " AND order_status='Undelivered' AND " + FRESH + " ORDER BY attempt_count DESC NULLS LAST, order_total DESC LIMIT 60"),
+    sql("SELECT order_number, brand, round(extract(epoch from now()-awb_assigned_date)/86400.0) d, courier_company, payment_method, order_total FROM warehouse_shipments WHERE " + w + " AND order_status='Manifested' AND awb_assigned_date < now() - interval '2 days' AND " + FRESH + " ORDER BY d DESC LIMIT 40"),
+    sql("SELECT order_number, brand, order_status, to_char(edd at time zone 'Asia/Kolkata','DD Mon') edd_d, round(extract(epoch from now()-edd)/86400.0) over_d, courier_company FROM warehouse_shipments WHERE " + w + " AND edd is not null AND edd < now() AND order_status IN " + MOVING + " AND " + FRESH + " ORDER BY over_d DESC LIMIT 40")
+  ]);
+  var k = results[0][0] || {};
+  document.getElementById('cm-kpis').innerHTML = kpiHTML([
+    ['Open Orders', fmt(+k.open_all), 'not yet terminal'],
+    ['NDR Backlog', fmt(+k.ndr_n), inr(k.ndr_v) + ' at risk', '#dc2626'],
+    ['NDR ≥3 Attempts', fmt(+k.ndr3), 'RTO-imminent — call now', '#dc2626'],
+    ['Stuck at Manifest', fmt(+k.stuck), '>2 days without pickup', '#d97706'],
+    ['EDD Breached', fmt(+k.edd_breach), 'still moving, past promise', '#d97706'],
+    ['COD in Flight', inr(k.cod_open_v), 'cash tied up in open COD']
+  ]);
+  document.querySelector('#cm-ndr tbody').innerHTML = results[1].map(function(r){
+    return '<tr><td><b>'+r.order_number+'</b></td><td><span class="badge bp">'+r.brand+'</span></td><td>'+(r.product||'')+'</td><td><span class="badge '+(+r.attempt_count>=3?'br':+r.attempt_count==2?'by':'bk')+'">'+(r.attempt_count||0)+'</span></td><td>'+(r.last_att||'--')+'</td><td>'+(r.courier_company||'')+'</td><td>'+(r.payment_method||'')+'</td><td>'+inr(r.order_total)+'</td><td>'+(r.customer_state||'')+'</td></tr>';
+  }).join('') || noData(9);
+  document.querySelector('#cm-stuck tbody').innerHTML = results[2].map(function(r){
+    return '<tr><td><b>'+r.order_number+'</b></td><td><span class="badge bp">'+r.brand+'</span></td><td><span class="badge '+(+r.d>=4?'br':'by')+'">'+r.d+'d</span></td><td>'+(r.courier_company||'')+'</td><td>'+(r.payment_method||'')+'</td><td>'+inr(r.order_total)+'</td></tr>';
+  }).join('') || noData(6);
+  document.querySelector('#cm-edd tbody').innerHTML = results[3].map(function(r){
+    return '<tr><td><b>'+r.order_number+'</b></td><td><span class="badge bp">'+r.brand+'</span></td><td>'+r.order_status+'</td><td>'+r.edd_d+'</td><td><span class="badge '+(+r.over_d>=3?'br':'by')+'">'+r.over_d+'d</span></td><td>'+(r.courier_company||'')+'</td></tr>';
+  }).join('') || noData(6);
+}
+
+// ============ OVERVIEW ============
+async function loadOverview() {
+  var w = W();
+  var results = await Promise.all([
+    sql("SELECT count(*) total, count(*) filter(where order_status='Delivered') delivered, count(*) filter(where " + RTO + ") rto, count(*) filter(where order_status NOT IN " + CLOSED + ") active, count(*) filter(where payment_method='COD') cod, round(sum(order_total)::numeric,0) gmv, round(avg(case when order_status='Delivered' and order_delivered_date > order_pickup_date and extract(epoch from order_delivered_date-order_pickup_date)/86400.0 <= 30 then extract(epoch from order_delivered_date-order_pickup_date)/86400.0 end)::numeric,1) avg_days FROM warehouse_shipments WHERE " + w),
+    sql("SELECT order_status, count(*) cnt FROM warehouse_shipments WHERE " + w + " GROUP BY 1 ORDER BY cnt DESC LIMIT 12"),
+    sql("SELECT brand, count(*) total, count(*) filter(where order_status='Delivered') delivered, round(100.0*count(*) filter(where " + RTO + ")/nullif(count(*) filter(where " + TERM + "),0),1) rto_rate, round(100.0*count(*) filter(where payment_method='COD')/count(*),1) cod_pct, round(sum(order_total)::numeric,0) gmv FROM warehouse_shipments WHERE " + w + " GROUP BY 1 ORDER BY total DESC"),
+    sql("SELECT courier_company, count(*) total, round(100.0*count(*) filter(where order_status='Delivered')/count(*),1) deliv_pct, round(100.0*count(*) filter(where " + RTO + ")/nullif(count(*) filter(where " + TERM + "),0),1) rto_rate, round(avg(case when order_status='Delivered' and order_delivered_date > order_pickup_date and extract(epoch from order_delivered_date-order_pickup_date)/86400.0 <= 30 then extract(epoch from order_delivered_date-order_pickup_date)/86400.0 end)::numeric,1) avg_days FROM warehouse_shipments WHERE " + w + " AND courier_company IS NOT NULL AND courier_company != '' GROUP BY 1 ORDER BY total DESC LIMIT 10"),
+    sql("SELECT zone, count(*) total, round(100.0*count(*) filter(where order_status='Delivered')/count(*),1) deliv_pct, round(100.0*count(*) filter(where " + RTO + ")/nullif(count(*) filter(where " + TERM + "),0),1) rto_rate, round(100.0*count(*) filter(where payment_method='COD')/count(*),1) cod_pct FROM warehouse_shipments WHERE " + w + " AND zone IS NOT NULL AND zone != '' GROUP BY 1 ORDER BY 1"),
+    sql("SELECT to_char(date_trunc('week', order_date at time zone 'Asia/Kolkata'),'DD Mon') wk, min(date_trunc('week', order_date at time zone 'Asia/Kolkata')) ord, count(*) total, count(*) filter(where order_status='Delivered') delivered, count(*) filter(where " + RTO + ") rto FROM warehouse_shipments WHERE " + w + " GROUP BY 1 ORDER BY ord")
+  ]);
+  var k = results[0][0] || {};
+  var rtoRate = (+k.delivered + +k.rto) > 0 ? (+k.rto/(+k.delivered + +k.rto)*100).toFixed(1) : '0';
+  document.getElementById('ov-kpis').innerHTML = kpiHTML([
+    ['Total Orders', fmt(+k.total), 'GMV ' + inr(k.gmv)],
+    ['Delivered', fmt(+k.delivered), pct(+k.delivered, +k.total) + ' of all'],
+    ['RTO Rate', rtoRate + '%', fmt(+k.rto) + ' orders (terminal basis)', +rtoRate>25?'#dc2626':undefined],
+    ['Active', fmt(+k.active), 'open right now'],
+    ['COD Share', pct(+k.cod, +k.total), fmt(+k.cod) + ' orders'],
+    ['Avg Delivery', days(k.avg_days), 'pickup → door']
+  ]);
+  var st = results[1];
+  var sc = {'Delivered':'#6ee7b7','In Transit':'#93c5fd','Rto Delivered':'#f87171','Rto In Transit':'#fca5a5','Manifested':'#a78bfa','Undelivered':'#fdba74','Out For Delivery':'#67e8f9','Cancelled':'#cbd5e1','Delayed':'#fcd34d','Picked Up':'#bef264'};
+  doughnut('ov-status', st.map(function(r){return r.order_status;}), st.map(function(r){return +r.cnt;}), st.map(function(r){return sc[r.order_status]||'#94a3b8';}));
+  document.querySelector('#ov-brand tbody').innerHTML = results[2].map(function(r){
+    return '<tr><td><span class="badge bp">'+r.brand+'</span></td><td>'+fmt(+r.total)+'</td><td>'+fmt(+r.delivered)+'</td><td>'+rtoBadge(r.rto_rate)+'</td><td>'+(r.cod_pct||0)+'%</td><td>'+inr(r.gmv)+'</td></tr>';
+  }).join('') || noData(6);
+  document.querySelector('#ov-carrier tbody').innerHTML = results[3].map(function(r){
+    return '<tr><td>'+r.courier_company+'</td><td>'+fmt(+r.total)+'</td><td>'+(r.deliv_pct||0)+'%</td><td>'+rtoBadge(r.rto_rate)+'</td><td>'+days(r.avg_days)+'</td></tr>';
+  }).join('') || noData(5);
+  document.querySelector('#ov-zone tbody').innerHTML = results[4].map(function(r){
+    return '<tr><td><span class="badge bb">Zone '+r.zone+'</span></td><td>'+fmt(+r.total)+'</td><td>'+(r.deliv_pct||0)+'%</td><td>'+rtoBadge(r.rto_rate)+'</td><td>'+(r.cod_pct||0)+'%</td></tr>';
+  }).join('') || noData(5);
+  var mo = results[5];
+  lineChart('ov-weekly', mo.map(function(r){return r.wk;}), [
+    {label:'Total', data:mo.map(function(r){return +r.total;}), fill:true},
+    {label:'Delivered', data:mo.map(function(r){return +r.delivered;}), borderColor:'#6ee7b7'},
+    {label:'RTO', data:mo.map(function(r){return +r.rto;}), borderColor:'#fca5a5'}
+  ]);
+}
+
+// ============ RTO INTELLIGENCE ============
+async function loadRTO() {
+  var w = W();
+  var mature = w + " AND order_date < now() - interval '14 days' AND " + TERM;
+  var results = await Promise.all([
+    sql("SELECT round(100.0*count(*) filter(where " + RTO + ")/nullif(count(*),0),1) rto_rate, count(*) n, round(100.0*count(*) filter(where " + RTO + " and payment_method='COD')/nullif(count(*) filter(where payment_method='COD'),0),1) cod_rto, round(100.0*count(*) filter(where " + RTO + " and payment_method='Prepaid')/nullif(count(*) filter(where payment_method='Prepaid'),0),1) pre_rto, round(sum(order_total) filter(where " + RTO + ")::numeric,0) rto_value FROM warehouse_shipments WHERE " + mature),
+    sql("SELECT to_char(date_trunc('week', order_date at time zone 'Asia/Kolkata'),'DD Mon') wk, min(date_trunc('week', order_date at time zone 'Asia/Kolkata')) ord, count(*) n, round(100.0*count(*) filter(where " + RTO + ")/count(*),1) rto_rate FROM warehouse_shipments WHERE " + mature + " GROUP BY 1 HAVING count(*) >= 20 ORDER BY ord"),
+    sql("SELECT payment_method, count(*) n, round(100.0*count(*) filter(where " + RTO + ")/count(*),1) rto_rate FROM warehouse_shipments WHERE " + mature + " AND payment_method IN ('COD','Prepaid') GROUP BY 1 ORDER BY 1"),
+    sql("SELECT case when rto_reason ilike '%refus%' or rto_reason ilike '%reject%' then 'Customer refused' when rto_reason ilike '%unavail%' or rto_reason ilike '%not available%' then 'Customer unavailable' when rto_reason ilike '%address%' then 'Address issue' when rto_reason ilike '%cancel%' then 'Cancelled / OTP-verified' when rto_reason ilike '%collect%' or rto_reason ilike '%branch%' then 'Hold at branch' when rto_reason is null or trim(rto_reason)='' then '(not recorded)' else 'Other' end reason, count(*) n FROM warehouse_shipments WHERE " + w + " AND " + RTO + " GROUP BY 1 ORDER BY n DESC"),
+    sql("SELECT brand, left(split_part(product_name,'|',1),30) product, count(*) n, round(100.0*count(*) filter(where " + RTO + ")/count(*),1) rto_rate, round(100.0*count(*) filter(where " + RTO + " and payment_method='COD')/nullif(count(*) filter(where payment_method='COD'),0),1) cod_rto FROM warehouse_shipments WHERE " + mature + " GROUP BY 1,2 HAVING count(*) >= 20 ORDER BY rto_rate DESC LIMIT 20"),
+    sql("SELECT customer_state, count(*) n, round(100.0*count(*) filter(where " + RTO + ")/count(*),1) rto_rate, round(100.0*count(*) filter(where payment_method='COD')/count(*),1) cod_pct FROM warehouse_shipments WHERE " + mature + " GROUP BY 1 HAVING count(*) >= 15 ORDER BY rto_rate DESC LIMIT 20")
+  ]);
+  var k = results[0][0] || {};
+  document.getElementById('rt-kpis').innerHTML = kpiHTML([
+    ['True RTO Rate', (k.rto_rate||0) + '%', fmt(+k.n) + ' matured terminal orders', +k.rto_rate>25?'#dc2626':undefined],
+    ['COD RTO', (k.cod_rto||0) + '%', 'matured cohort', '#dc2626'],
+    ['Prepaid RTO', (k.pre_rto||0) + '%', 'matured cohort', '#059669'],
+    ['RTO Value Lost', inr(k.rto_value), 'order value returned']
+  ]);
+  var wk = results[1];
+  lineChart('rt-weekly', wk.map(function(r){return r.wk;}), [{label:'RTO %', data:wk.map(function(r){return +r.rto_rate;}), borderColor:'#f87171', fill:true, backgroundColor:'#f8717122'}]);
+  var pay = results[2];
+  barChart('rt-pay', pay.map(function(r){return r.payment_method + ' (' + fmt(+r.n) + ')';}), pay.map(function(r){return +r.rto_rate;}), ['#fcd34d','#a78bfa']);
+  var rs = results[3]; var totR = rs.reduce(function(a,b){return a + +b.n;},0);
+  document.querySelector('#rt-reason tbody').innerHTML = rs.map(function(r){
+    return '<tr><td>'+r.reason+'</td><td>'+fmt(+r.n)+'</td><td>'+pct(+r.n, totR)+'</td></tr>';
+  }).join('') || noData(3);
+  document.querySelector('#rt-product tbody').innerHTML = results[4].map(function(r){
+    return '<tr><td><span class="badge bp">'+r.brand+'</span></td><td>'+r.product+'</td><td>'+fmt(+r.n)+'</td><td>'+rtoBadge(r.rto_rate)+'</td><td>'+(r.cod_rto!=null?r.cod_rto+'%':'--')+'</td></tr>';
+  }).join('') || noData(5);
+  document.querySelector('#rt-state tbody').innerHTML = results[5].map(function(r){
+    return '<tr><td>'+r.customer_state+'</td><td>'+fmt(+r.n)+'</td><td>'+rtoBadge(r.rto_rate)+'</td><td>'+(r.cod_pct||0)+'%</td></tr>';
+  }).join('') || noData(4);
+}
+
+// ============ NDR & STUCK ============
+async function loadNDR() {
+  var w = W();
+  var ndrBase = w + " AND ndr_first_attempt_date IS NOT NULL";
+  var results = await Promise.all([
+    sql("SELECT count(*) n, count(*) filter(where order_status='Delivered') saved, count(*) filter(where " + RTO + ") lost, count(*) filter(where order_status='Undelivered') open_now, round(avg(attempt_count)::numeric,1) avg_att FROM warehouse_shipments WHERE " + ndrBase),
+    sql("SELECT coalesce(attempt_count,0) att, count(*) n FROM warehouse_shipments WHERE " + w + " AND order_status='Undelivered' GROUP BY 1 ORDER BY 1"),
+    sql("SELECT case when order_status='Delivered' then 'Saved → Delivered' when " + RTO + " then 'Lost → RTO' when order_status='Undelivered' then 'Still Undelivered' else 'Other open' end outcome, count(*) n FROM warehouse_shipments WHERE " + ndrBase + " GROUP BY 1 ORDER BY n DESC"),
+    sql("SELECT brand, count(*) n, count(*) filter(where order_status='Delivered') saved, count(*) filter(where " + RTO + ") lost, count(*) filter(where order_status='Undelivered') open_now FROM warehouse_shipments WHERE " + ndrBase + " GROUP BY 1 ORDER BY n DESC"),
+    sql("SELECT courier_company, count(*) n, round(100.0*count(*) filter(where order_status='Delivered')/nullif(count(*) filter(where order_status='Delivered' or " + RTO + "),0),1) save_rate, round(avg(attempt_count)::numeric,1) avg_att FROM warehouse_shipments WHERE " + ndrBase + " AND courier_company IS NOT NULL GROUP BY 1 HAVING count(*) >= 10 ORDER BY n DESC")
+  ]);
+  var k = results[0][0] || {};
+  var saveRate = (+k.saved + +k.lost) > 0 ? (100.0*+k.saved/(+k.saved + +k.lost)).toFixed(1) : '--';
+  document.getElementById('nd-kpis').innerHTML = kpiHTML([
+    ['Orders Hit NDR', fmt(+k.n), 'ever had a failed attempt'],
+    ['Saved', fmt(+k.saved), 'delivered after NDR', '#059669'],
+    ['Lost to RTO', fmt(+k.lost), 'after NDR', '#dc2626'],
+    ['NDR Save Rate', saveRate + '%', 'of resolved NDRs'],
+    ['Still Open', fmt(+k.open_now), 'undelivered right now'],
+    ['Avg Attempts', k.avg_att || '--', 'per NDR order']
+  ]);
+  var at = results[1];
+  barChart('nd-attempts', at.map(function(r){return r.att + ' attempts';}), at.map(function(r){return +r.n;}), at.map(function(r){return +r.att>=3?'#f87171':+r.att==2?'#fcd34d':'#93c5fd';}));
+  var oc = results[2];
+  doughnut('nd-outcomes', oc.map(function(r){return r.outcome;}), oc.map(function(r){return +r.n;}), ['#6ee7b7','#f87171','#fdba74','#cbd5e1']);
+  document.querySelector('#nd-brand tbody').innerHTML = results[3].map(function(r){
+    var sr = (+r.saved + +r.lost) > 0 ? (100.0*+r.saved/(+r.saved + +r.lost)).toFixed(1)+'%' : '--';
+    return '<tr><td><span class="badge bp">'+r.brand+'</span></td><td>'+fmt(+r.n)+'</td><td>'+fmt(+r.saved)+'</td><td>'+fmt(+r.lost)+'</td><td><span class="badge bg">'+sr+'</span></td><td>'+fmt(+r.open_now)+'</td></tr>';
+  }).join('') || noData(6);
+  document.querySelector('#nd-courier tbody').innerHTML = results[4].map(function(r){
+    return '<tr><td>'+r.courier_company+'</td><td>'+fmt(+r.n)+'</td><td><span class="badge '+(+r.save_rate>=50?'bg':'by')+'">'+(r.save_rate||0)+'%</span></td><td>'+(r.avg_att||'--')+'</td></tr>';
+  }).join('') || noData(4);
+}
+
+// ============ COD & CASH ============
+async function loadCOD() {
+  var w = W();
+  var results = await Promise.all([
+    sql("SELECT round(100.0*count(*) filter(where payment_method='COD')/count(*),1) cod_share, round(sum(order_total) filter(where payment_method='COD' AND order_status NOT IN " + CLOSED + " AND " + FRESH + ")::numeric,0) cod_open, count(*) filter(where payment_method='COD' AND order_status='Delivered' AND cod_remittance_date IS NOT NULL) remit_n, round(sum(order_total) filter(where payment_method='COD' AND order_status='Delivered' AND cod_remittance_date IS NOT NULL)::numeric,0) remit_v, round(avg(extract(epoch from cod_remittance_date - order_delivered_date)/86400.0) filter(where cod_remittance_date > order_delivered_date)::numeric,1) remit_lag FROM warehouse_shipments WHERE " + w),
+    sql("SELECT to_char(date_trunc('week', order_date at time zone 'Asia/Kolkata'),'DD Mon') wk, min(date_trunc('week', order_date at time zone 'Asia/Kolkata')) ord, round(100.0*count(*) filter(where payment_method='COD')/count(*),1) cod_share FROM warehouse_shipments WHERE " + w + " GROUP BY 1 HAVING count(*) >= 20 ORDER BY ord"),
+    sql("SELECT brand, count(*) filter(where payment_method='COD' AND order_status='Delivered') cod_del, round(sum(order_total) filter(where payment_method='COD' AND order_status='Delivered')::numeric,0) cod_del_v, count(*) filter(where payment_method='COD' AND order_status='Delivered' AND cod_remittance_date IS NOT NULL) remit_n, round(sum(order_total) filter(where payment_method='COD' AND order_status='Delivered' AND cod_remittance_date IS NOT NULL)::numeric,0) remit_v, round(avg(extract(epoch from cod_remittance_date - order_delivered_date)/86400.0) filter(where cod_remittance_date > order_delivered_date)::numeric,1) lag FROM warehouse_shipments WHERE " + w + " GROUP BY 1 ORDER BY cod_del DESC"),
+    sql("SELECT 'COD in transit (fresh)' bucket, count(*) n, round(sum(order_total)::numeric,0) v FROM warehouse_shipments WHERE " + w + " AND payment_method='COD' AND order_status IN " + MOVING + " AND " + FRESH + " UNION ALL SELECT 'COD undelivered (NDR)', count(*), round(sum(order_total)::numeric,0) FROM warehouse_shipments WHERE " + w + " AND payment_method='COD' AND order_status='Undelivered' AND " + FRESH + " UNION ALL SELECT 'COD delivered, remittance recorded', count(*), round(sum(order_total)::numeric,0) FROM warehouse_shipments WHERE " + w + " AND payment_method='COD' AND order_status='Delivered' AND cod_remittance_date IS NOT NULL UNION ALL SELECT 'COD delivered, remittance unknown', count(*), round(sum(order_total)::numeric,0) FROM warehouse_shipments WHERE " + w + " AND payment_method='COD' AND order_status='Delivered' AND cod_remittance_date IS NULL"),
+    sql("SELECT brand, round(sum(total_freight_charge)::numeric,0) billed, round(sum(unbilled_charges)::numeric,0) unbilled, round(sum(rto_charges)::numeric,0) rto_ch, round(sum(cod_charges)::numeric,0) cod_ch FROM warehouse_shipments WHERE " + w + " GROUP BY 1 ORDER BY billed DESC")
+  ]);
+  var k = results[0][0] || {};
+  document.getElementById('cd-kpis').innerHTML = kpiHTML([
+    ['COD Share', (k.cod_share||0) + '%', 'of orders in range'],
+    ['COD in Flight', inr(k.cod_open), 'open COD order value'],
+    ['Remitted', inr(k.remit_v), fmt(+k.remit_n) + ' orders with remit date', '#059669'],
+    ['Avg Remit Lag', days(k.remit_lag), 'delivery → remittance']
+  ]);
+  var wk = results[1];
+  lineChart('cd-share', wk.map(function(r){return r.wk;}), [{label:'COD %', data:wk.map(function(r){return +r.cod_share;}), borderColor:'#fcd34d', fill:true, backgroundColor:'#fcd34d22'}]);
+  document.querySelector('#cd-brand tbody').innerHTML = results[2].map(function(r){
+    return '<tr><td><span class="badge bp">'+r.brand+'</span></td><td>'+fmt(+r.cod_del)+'</td><td>'+inr(r.cod_del_v)+'</td><td>'+fmt(+r.remit_n)+'</td><td>'+inr(r.remit_v)+'</td><td>'+days(r.lag)+'</td></tr>';
+  }).join('') || noData(6);
+  document.querySelector('#cd-risk tbody').innerHTML = results[3].map(function(r){
+    return '<tr><td>'+r.bucket+'</td><td>'+fmt(+r.n)+'</td><td><b>'+inr(r.v)+'</b></td></tr>';
+  }).join('') || noData(3);
+  document.querySelector('#cd-freight tbody').innerHTML = results[4].map(function(r){
+    return '<tr><td><span class="badge bp">'+r.brand+'</span></td><td>'+inr(r.billed)+'</td><td>'+inr(r.unbilled)+'</td><td>'+inr(r.rto_ch)+'</td><td>'+inr(r.cod_ch)+'</td></tr>';
+  }).join('') || noData(5);
+}
+
+// ============ DELIVERY SLA ============
+async function loadSLA() {
+  var w = W();
+  var DELD = "order_status='Delivered' AND order_delivered_date > order_pickup_date AND extract(epoch from order_delivered_date-order_pickup_date)/86400.0 <= 30";
+  var results = await Promise.all([
+    sql("SELECT round(avg(extract(epoch from order_delivered_date-order_pickup_date)/86400.0)::numeric,1) avg_d, round((percentile_cont(0.5) within group (order by extract(epoch from order_delivered_date-order_pickup_date)/86400.0))::numeric,1) med_d, round((percentile_cont(0.9) within group (order by extract(epoch from order_delivered_date-order_pickup_date)/86400.0))::numeric,1) p90_d, count(*) n FROM warehouse_shipments WHERE " + w + " AND " + DELD),
+    sql("SELECT to_char(date_trunc('week', order_date at time zone 'Asia/Kolkata'),'DD Mon') wk, min(date_trunc('week', order_date at time zone 'Asia/Kolkata')) ord, round(avg(extract(epoch from order_delivered_date-order_pickup_date)/86400.0)::numeric,1) avg_d FROM warehouse_shipments WHERE " + w + " AND " + DELD + " GROUP BY 1 HAVING count(*) >= 10 ORDER BY ord"),
+    sql("SELECT courier_company, count(*) n, round(avg(extract(epoch from order_delivered_date-order_pickup_date)/86400.0)::numeric,1) avg_d, round((percentile_cont(0.9) within group (order by extract(epoch from order_delivered_date-order_pickup_date)/86400.0))::numeric,1) p90_d FROM warehouse_shipments WHERE " + w + " AND " + DELD + " AND courier_company IS NOT NULL GROUP BY 1 HAVING count(*) >= 15 ORDER BY avg_d"),
+    sql("SELECT width_bucket(extract(epoch from order_delivered_date-order_pickup_date)/86400.0, 0, 10, 10) b, count(*) n FROM warehouse_shipments WHERE " + w + " AND " + DELD + " GROUP BY 1 ORDER BY 1"),
+    sql("SELECT zone, count(*) n, round(avg(extract(epoch from order_delivered_date-order_pickup_date)/86400.0)::numeric,1) avg_d, round((percentile_cont(0.9) within group (order by extract(epoch from order_delivered_date-order_pickup_date)/86400.0))::numeric,1) p90_d FROM warehouse_shipments WHERE " + w + " AND " + DELD + " AND zone IS NOT NULL AND zone != '' GROUP BY 1 ORDER BY 1"),
+    sql("SELECT customer_state, count(*) n, round(avg(extract(epoch from order_delivered_date-order_pickup_date)/86400.0)::numeric,1) avg_d FROM warehouse_shipments WHERE " + w + " AND " + DELD + " GROUP BY 1 HAVING count(*) >= 15 ORDER BY avg_d DESC LIMIT 12"),
+    sql("SELECT courier_company, count(*) filter(where edd is not null AND edd < now() AND order_status IN " + MOVING + " AND " + FRESH + ") breached FROM warehouse_shipments WHERE " + w + " AND courier_company IS NOT NULL GROUP BY 1")
+  ]);
+  var k = results[0][0] || {};
+  document.getElementById('tl-kpis').innerHTML = kpiHTML([
+    ['Avg Delivery', days(k.avg_d), fmt(+k.n) + ' delivered orders'],
+    ['Median', days(k.med_d), 'typical order'],
+    ['P90', days(k.p90_d), 'slowest 10% start here'],
+    ['Sample', fmt(+k.n), 'pickup+delivery timestamps']
+  ]);
+  var wk = results[1];
+  lineChart('tl-weekly', wk.map(function(r){return r.wk;}), [{label:'Avg days', data:wk.map(function(r){return +r.avg_d;}), borderColor:'#93c5fd', fill:true, backgroundColor:'#93c5fd22'}]);
+  var br = {}; results[6].forEach(function(r){ br[r.courier_company] = +r.breached; });
+  document.querySelector('#tl-carrier tbody').innerHTML = results[2].map(function(r){
+    return '<tr><td>'+r.courier_company+'</td><td>'+fmt(+r.n)+'</td><td>'+days(r.avg_d)+'</td><td>'+days(r.p90_d)+'</td><td>'+(br[r.courier_company]?'<span class="badge by">'+br[r.courier_company]+'</span>':'0')+'</td></tr>';
+  }).join('') || noData(5);
+  var hist = results[3];
+  barChart('tl-dist', hist.map(function(r){return (+r.b-1) + '-' + r.b + 'd';}), hist.map(function(r){return +r.n;}), hist.map(function(r){return +r.b<=3?'#6ee7b7':+r.b<=6?'#fcd34d':'#f87171';}));
+  document.querySelector('#tl-zone tbody').innerHTML = results[4].map(function(r){
+    return '<tr><td><span class="badge bb">Zone '+r.zone+'</span></td><td>'+fmt(+r.n)+'</td><td>'+days(r.avg_d)+'</td><td>'+days(r.p90_d)+'</td></tr>';
+  }).join('') || noData(4);
+  document.querySelector('#tl-state tbody').innerHTML = results[5].map(function(r){
+    return '<tr><td>'+r.customer_state+'</td><td>'+fmt(+r.n)+'</td><td>'+days(r.avg_d)+'</td></tr>';
+  }).join('') || noData(3);
+}
+
+// ============ DATA TRUST ============
+async function loadTrust() {
+  var results = await Promise.all([
+    sql("SELECT brand, count(*) total, min(order_date)::date dmin, max(order_date)::date dmax, max(last_snapshot_date) last_sync, count(*) filter(where order_status NOT IN " + CLOSED + ") open_n, count(*) filter(where order_status NOT IN " + CLOSED + " AND NOT (" + FRESH + ")) stale_open, round(100.0*count(*) filter(where zone IS NULL OR zone='')/count(*),1) zone_null, count(*) filter(where awb_no ~ 'E\\+') mangled FROM warehouse_shipments WHERE brand != 'Unknown' GROUP BY 1 ORDER BY total DESC"),
+    sql("SELECT left(file_name,40) file_name, brand, rows_total, rows_inserted, status_changes_logged, to_char(processed_at at time zone 'Asia/Kolkata','DD Mon HH24:MI') at FROM processed_shipping_files ORDER BY processed_at DESC NULLS LAST LIMIT 12"),
+    sql("SELECT count(*) total, count(distinct brand) brands, max(last_snapshot_date) latest, (SELECT count(*) FROM shipment_status_history) journeys FROM warehouse_shipments WHERE brand != 'Unknown'")
+  ]);
+  var k = results[2][0] || {};
+  var staleTot = results[0].reduce(function(a,b){return a + +(b.stale_open||0);},0);
+  document.getElementById('dt-kpis').innerHTML = kpiHTML([
+    ['Total Rows', fmt(+k.total), k.brands + ' brands'],
+    ['Latest Sync', k.latest || '--', 'any brand'],
+    ['Stale Open Orders', fmt(staleTot), 'status may be outdated', staleTot > 100 ? '#dc2626' : '#059669'],
+    ['Journey Events', fmt(+k.journeys), 'status transitions logged']
+  ]);
+  document.querySelector('#dt-brand tbody').innerHTML = results[0].map(function(r){
+    return '<tr><td><span class="badge bp">'+r.brand+'</span></td><td>'+fmt(+r.total)+'</td><td>'+r.dmin+' → '+r.dmax+'</td><td>'+r.last_sync+'</td><td>'+fmt(+r.open_n)+'</td><td><span class="badge '+(+r.stale_open>50?'br':+r.stale_open>0?'by':'bg')+'">'+fmt(+r.stale_open)+'</span></td><td>'+(r.zone_null||0)+'%</td><td>'+fmt(+r.mangled)+'</td></tr>';
+  }).join('') || noData(8);
+  document.querySelector('#dt-files tbody').innerHTML = results[1].map(function(r){
+    return '<tr><td>'+r.file_name+'</td><td>'+(r.brand||'')+'</td><td>'+fmt(+r.rows_total)+'</td><td>'+fmt(+r.rows_inserted)+'</td><td>'+fmt(+r.status_changes_logged)+'</td><td>'+(r.at||'--')+'</td></tr>';
+  }).join('') || noData(6);
+}
+
+// ============ ROUTER ============
+var LOADERS = { command: loadCommand, overview: loadOverview, rto: loadRTO, ndr: loadNDR, cod: loadCOD, sla: loadSLA, trust: loadTrust };
+async function loadTab(tab, force) {
+  if (loaded[tab] && !force) return;
+  loaded[tab] = true;
+  try { await LOADERS[tab](); } catch(e) {
+    loaded[tab] = false;
+    document.getElementById('tc-' + tab).insertAdjacentHTML('afterbegin', '<div class="callout red">Load failed: ' + (e && e.message ? e.message : e) + ' — switch tabs and back to retry.</div>');
+  }
+}
+function refreshAll() { loaded = {}; loadTab(curTab, true); }
+document.getElementById('tabBar').addEventListener('click', function(e) {
+  var t = e.target.closest('.tab'); if (!t) return;
+  document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');});
+  document.querySelectorAll('.tab-content').forEach(function(x){x.classList.remove('active');});
+  t.classList.add('active');
+  curTab = t.dataset.tab;
+  document.getElementById('tc-' + curTab).classList.add('active');
+  loadTab(curTab);
+});
+document.getElementById('fBrand').addEventListener('change', function(e){ curBrand = e.target.value; refreshAll(); });
+document.getElementById('fPay').addEventListener('change', function(e){ curPay = e.target.value; refreshAll(); });
+document.getElementById('pills').addEventListener('click', function(e) {
+  var p = e.target.closest('.pill'); if (!p) return;
+  document.querySelectorAll('.pill').forEach(function(x){x.classList.remove('active');});
+  p.classList.add('active');
+  curDays = +p.dataset.d;
+  if (curDays > 0) { document.getElementById('dFrom').value=''; document.getElementById('dTo').value=''; }
+  refreshAll();
+});
+document.getElementById('dFrom').addEventListener('change', function(){ curDays = 0; document.querySelectorAll('.pill').forEach(function(x){x.classList.toggle('active', x.dataset.d==='0');}); refreshAll(); });
+document.getElementById('dTo').addEventListener('change', function(){ curDays = 0; document.querySelectorAll('.pill').forEach(function(x){x.classList.toggle('active', x.dataset.d==='0');}); refreshAll(); });
+
+(async function init() {
+  document.getElementById('ts').textContent = 'Live from Supabase · loaded ' + new Date().toLocaleString('en-IN', {timeZone:'Asia/Kolkata', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'});
+  loadTab('command');
+})();
+</script>
+</body>
+</html>
