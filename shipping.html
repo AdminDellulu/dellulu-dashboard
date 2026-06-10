@@ -66,6 +66,7 @@ table.dt tr:hover { background: #faf8ff; }
   <div class="filters">
     <select id="fBrand"><option value="all">All Brands</option><option value="Dellulu">Dellulu</option><option value="Flanq">Flanq</option><option value="SnugLlama">SnugLlama</option></select>
     <select id="fPay"><option value="all">COD + Prepaid</option><option value="COD">COD only</option><option value="Prepaid">Prepaid only</option></select>
+    <select id="fProd"><option value="all">All Products</option></select>
     <div class="pill-row" id="pills">
       <div class="pill" data-d="7">7D</div>
       <div class="pill" data-d="14">14D</div>
@@ -95,8 +96,8 @@ table.dt tr:hover { background: #faf8ff; }
     <div class="kpi-row" id="cm-kpis"></div>
     <div class="grid2">
       <div class="card full"><h3>🔥 NDR Action Queue — call these customers today</h3><div class="note">Orders currently Undelivered, sorted by attempts &amp; value. ≥3 attempts usually converts to RTO within 48h.</div><div class="scrollt"><table class="dt" id="cm-ndr"><thead><tr><th>Order#</th><th>Brand</th><th>Product</th><th>Attempts</th><th>Last Attempt</th><th>Courier</th><th>Pay</th><th>Value</th><th>State</th></tr></thead><tbody></tbody></table></div></div>
-      <div class="card"><h3>📦 Stuck at Manifest (&gt;2 days, no pickup)</h3><div class="note">Escalate pickup with courier / warehouse.</div><div class="scrollt"><table class="dt" id="cm-stuck"><thead><tr><th>Order#</th><th>Brand</th><th>Days</th><th>Courier</th><th>Pay</th><th>Value</th></tr></thead><tbody></tbody></table></div></div>
-      <div class="card"><h3>⏰ EDD Breached, still moving</h3><div class="note">Past promised delivery date — proactive customer comms prevents refusal-on-arrival.</div><div class="scrollt"><table class="dt" id="cm-edd"><thead><tr><th>Order#</th><th>Brand</th><th>Status</th><th>EDD</th><th>Days Over</th><th>Courier</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="card"><h3>📦 Stuck at Manifest (&gt;2 days, no pickup)</h3><div class="note">Escalate pickup with courier / warehouse.</div><div class="scrollt"><table class="dt" id="cm-stuck"><thead><tr><th>Order#</th><th>Brand</th><th>Product</th><th>Days</th><th>Courier</th><th>Pay</th><th>Value</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="card"><h3>⏰ EDD Breached, still moving</h3><div class="note">Past promised delivery date — proactive customer comms prevents refusal-on-arrival.</div><div class="scrollt"><table class="dt" id="cm-edd"><thead><tr><th>Order#</th><th>Brand</th><th>Product</th><th>Status</th><th>EDD</th><th>Days Over</th><th>Courier</th></tr></thead><tbody></tbody></table></div></div>
     </div>
   </div>
 
@@ -180,6 +181,7 @@ var CX = {};
 var curTab = 'command';
 var curBrand = 'all';
 var curPay = 'all';
+var curProd = 'all';
 var curDays = 0;
 var loaded = {};
 var CLOSED = "('Delivered','Rto Delivered','Cancelled','Cancel Request Approved')";
@@ -207,6 +209,7 @@ function W() {
   var p = ["brand != 'Unknown'", "order_date <= now()"];
   if (curBrand !== 'all') p.push("brand = '" + curBrand + "'");
   if (curPay !== 'all') p.push("payment_method = '" + curPay + "'");
+  if (curProd !== 'all') p.push("trim(split_part(product_name,'|',1)) = '" + curProd.replace(/'/g, "''") + "'");
   var f = document.getElementById('dFrom').value;
   var t = document.getElementById('dTo').value;
   if (curDays > 0) p.push("order_date >= now() - interval '" + curDays + " days'");
@@ -243,8 +246,8 @@ async function loadCommand() {
   var results = await Promise.all([
     sql("SELECT count(*) filter(where order_status NOT IN " + CLOSED + ") open_all, count(*) filter(where order_status='Undelivered' AND " + FRESH + ") ndr_n, round(sum(order_total) filter(where order_status='Undelivered' AND " + FRESH + ")::numeric,0) ndr_v, count(*) filter(where order_status='Undelivered' AND attempt_count>=3 AND " + FRESH + ") ndr3, count(*) filter(where order_status='Manifested' AND awb_assigned_date < now() - interval '2 days' AND " + FRESH + ") stuck, count(*) filter(where edd is not null AND edd < now() AND order_status IN " + MOVING + " AND " + FRESH + ") edd_breach, round(sum(order_total) filter(where payment_method='COD' AND order_status NOT IN " + CLOSED + " AND " + FRESH + ")::numeric,0) cod_open_v FROM warehouse_shipments WHERE " + w),
     sql("SELECT order_number, brand, left(split_part(product_name,'|',1),28) product, attempt_count, to_char(last_attempt_date at time zone 'Asia/Kolkata','DD Mon') last_att, courier_company, payment_method, order_total, customer_state FROM warehouse_shipments WHERE " + w + " AND order_status='Undelivered' AND " + FRESH + " ORDER BY attempt_count DESC NULLS LAST, order_total DESC LIMIT 60"),
-    sql("SELECT order_number, brand, round(extract(epoch from now()-awb_assigned_date)/86400.0) d, courier_company, payment_method, order_total FROM warehouse_shipments WHERE " + w + " AND order_status='Manifested' AND awb_assigned_date < now() - interval '2 days' AND " + FRESH + " ORDER BY d DESC LIMIT 40"),
-    sql("SELECT order_number, brand, order_status, to_char(edd at time zone 'Asia/Kolkata','DD Mon') edd_d, round(extract(epoch from now()-edd)/86400.0) over_d, courier_company FROM warehouse_shipments WHERE " + w + " AND edd is not null AND edd < now() AND order_status IN " + MOVING + " AND " + FRESH + " ORDER BY over_d DESC LIMIT 40")
+    sql("SELECT order_number, brand, left(split_part(product_name,'|',1),24) product, round(extract(epoch from now()-awb_assigned_date)/86400.0) d, courier_company, payment_method, order_total FROM warehouse_shipments WHERE " + w + " AND order_status='Manifested' AND awb_assigned_date < now() - interval '2 days' AND " + FRESH + " ORDER BY d DESC LIMIT 40"),
+    sql("SELECT order_number, brand, left(split_part(product_name,'|',1),24) product, order_status, to_char(edd at time zone 'Asia/Kolkata','DD Mon') edd_d, round(extract(epoch from now()-edd)/86400.0) over_d, courier_company FROM warehouse_shipments WHERE " + w + " AND edd is not null AND edd < now() AND order_status IN " + MOVING + " AND " + FRESH + " ORDER BY over_d DESC LIMIT 40")
   ]);
   var k = results[0][0] || {};
   document.getElementById('cm-kpis').innerHTML = kpiHTML([
@@ -259,11 +262,11 @@ async function loadCommand() {
     return '<tr><td><b>'+r.order_number+'</b></td><td><span class="badge bp">'+r.brand+'</span></td><td>'+(r.product||'')+'</td><td><span class="badge '+(+r.attempt_count>=3?'br':+r.attempt_count==2?'by':'bk')+'">'+(r.attempt_count||0)+'</span></td><td>'+(r.last_att||'--')+'</td><td>'+(r.courier_company||'')+'</td><td>'+(r.payment_method||'')+'</td><td>'+inr(r.order_total)+'</td><td>'+(r.customer_state||'')+'</td></tr>';
   }).join('') || noData(9);
   document.querySelector('#cm-stuck tbody').innerHTML = results[2].map(function(r){
-    return '<tr><td><b>'+r.order_number+'</b></td><td><span class="badge bp">'+r.brand+'</span></td><td><span class="badge '+(+r.d>=4?'br':'by')+'">'+r.d+'d</span></td><td>'+(r.courier_company||'')+'</td><td>'+(r.payment_method||'')+'</td><td>'+inr(r.order_total)+'</td></tr>';
-  }).join('') || noData(6);
+    return '<tr><td><b>'+r.order_number+'</b></td><td><span class="badge bp">'+r.brand+'</span></td><td>'+(r.product||'')+'</td><td><span class="badge '+(+r.d>=4?'br':'by')+'">'+r.d+'d</span></td><td>'+(r.courier_company||'')+'</td><td>'+(r.payment_method||'')+'</td><td>'+inr(r.order_total)+'</td></tr>';
+  }).join('') || noData(7);
   document.querySelector('#cm-edd tbody').innerHTML = results[3].map(function(r){
-    return '<tr><td><b>'+r.order_number+'</b></td><td><span class="badge bp">'+r.brand+'</span></td><td>'+r.order_status+'</td><td>'+r.edd_d+'</td><td><span class="badge '+(+r.over_d>=3?'br':'by')+'">'+r.over_d+'d</span></td><td>'+(r.courier_company||'')+'</td></tr>';
-  }).join('') || noData(6);
+    return '<tr><td><b>'+r.order_number+'</b></td><td><span class="badge bp">'+r.brand+'</span></td><td>'+(r.product||'')+'</td><td>'+r.order_status+'</td><td>'+r.edd_d+'</td><td><span class="badge '+(+r.over_d>=3?'br':'by')+'">'+r.over_d+'d</span></td><td>'+(r.courier_company||'')+'</td></tr>';
+  }).join('') || noData(7);
 }
 
 // ============ OVERVIEW ============
@@ -487,6 +490,20 @@ document.getElementById('tabBar').addEventListener('click', function(e) {
 });
 document.getElementById('fBrand').addEventListener('change', function(e){ curBrand = e.target.value; refreshAll(); });
 document.getElementById('fPay').addEventListener('change', function(e){ curPay = e.target.value; refreshAll(); });
+document.getElementById('fProd').addEventListener('change', function(e){ curProd = e.target.value; refreshAll(); });
+async function populateProducts() {
+  try {
+    var rows = await sql("SELECT trim(split_part(product_name,'|',1)) p, count(*) n FROM warehouse_shipments WHERE brand != 'Unknown' AND product_name IS NOT NULL AND trim(product_name) != '' GROUP BY 1 ORDER BY n DESC LIMIT 60");
+    var sel = document.getElementById('fProd');
+    rows.forEach(function(r) {
+      if (!r.p) return;
+      var o = document.createElement('option');
+      o.value = r.p;
+      o.textContent = (r.p.length > 32 ? r.p.slice(0,32) + '…' : r.p) + ' (' + r.n + ')';
+      sel.appendChild(o);
+    });
+  } catch(e) {}
+}
 document.getElementById('pills').addEventListener('click', function(e) {
   var p = e.target.closest('.pill'); if (!p) return;
   document.querySelectorAll('.pill').forEach(function(x){x.classList.remove('active');});
@@ -500,6 +517,7 @@ document.getElementById('dTo').addEventListener('change', function(){ curDays = 
 
 (async function init() {
   document.getElementById('ts').textContent = 'Live from Supabase · loaded ' + new Date().toLocaleString('en-IN', {timeZone:'Asia/Kolkata', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'});
+  populateProducts();
   loadTab('command');
 })();
 </script>
