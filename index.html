@@ -284,6 +284,72 @@
             text-align: center; padding: 40px 20px; color: var(--text-sec); font-size: 13px;
         }
         .search-empty-state-icon { font-size: 32px; margin-bottom: 10px; opacity: 0.4; }
+
+        /* ===== Claude chat thread ===== */
+        .chat-thread { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
+        .chat-thread-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 4px 4px; font-size: 11px; color: var(--text-sec); border-bottom: 1px dashed var(--border);
+            margin-bottom: 6px;
+        }
+        .chat-thread-header-title { display: flex; align-items: center; gap: 6px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #D97757; }
+        .chat-thread-clear {
+            background: transparent; border: 1px solid var(--border); color: var(--text-sec);
+            padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;
+            font-family: inherit; transition: all .15s;
+        }
+        .chat-thread-clear:hover { border-color: var(--purple); color: var(--purple); }
+        .chat-msg { display: flex; gap: 10px; max-width: 90%; animation: fadeIn .2s ease; }
+        .chat-msg-user { align-self: flex-end; flex-direction: row-reverse; }
+        .chat-msg-claude { align-self: flex-start; }
+        .chat-msg-icon {
+            width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(217, 119, 87, 0.12);
+        }
+        .chat-msg-user .chat-msg-icon { background: rgba(var(--purple-rgb), 0.12); color: var(--purple); font-weight: 700; font-size: 13px; }
+        .chat-msg-bubble {
+            background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+            padding: 10px 14px; font-size: 13px; color: var(--text-pri); line-height: 1.55;
+            min-width: 0; flex: 1;
+        }
+        .chat-msg-user .chat-msg-bubble {
+            background: linear-gradient(135deg, var(--purple), rgba(var(--purple-rgb), 0.85));
+            border-color: rgba(var(--purple-rgb), .35); color: #fff; font-weight: 500;
+        }
+        .chat-msg-bubble p:first-child { margin-top: 0; }
+        .chat-msg-bubble p:last-child  { margin-bottom: 0; }
+        .chat-msg-meta {
+            margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);
+            font-size: 10px; color: var(--text-sec); display: flex; justify-content: space-between; gap: 12px;
+        }
+        .chat-thinking { display: flex; gap: 10px; align-self: flex-start; animation: fadeIn .15s ease; }
+        .chat-thinking-dots { display: inline-flex; gap: 4px; align-items: center; }
+        .chat-thinking-dots span {
+            width: 6px; height: 6px; border-radius: 50%; background: #D97757; opacity: .4;
+            animation: chatPulse 1.2s ease-in-out infinite;
+        }
+        .chat-thinking-dots span:nth-child(2) { animation-delay: .15s; }
+        .chat-thinking-dots span:nth-child(3) { animation-delay: .30s; }
+        @keyframes chatPulse {
+            0%, 80%, 100% { opacity: .25; transform: scale(.8); }
+            40%           { opacity: 1;   transform: scale(1); }
+        }
+
+        /* When chat is active: input docks at the bottom of the viewport, thread fills above. */
+        .search-spotlight.chat-mode {
+            display: flex; flex-direction: column;
+            min-height: calc(100vh - 220px); position: relative;
+        }
+        .search-spotlight.chat-mode .search-suggestions { display: none !important; }
+        .search-spotlight.chat-mode .search-results { order: 1; flex: 1; padding-bottom: 12px; }
+        .search-spotlight.chat-mode .search-spotlight-header {
+            order: 2; position: sticky; bottom: 12px; z-index: 5;
+            background: var(--bg); padding: 14px 0 4px;
+            border-top: 1px solid var(--border); margin-top: 12px;
+        }
+        body.dark-mode .search-spotlight.chat-mode .search-spotlight-header { background: var(--bg); }
+
         .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 
@@ -1338,7 +1404,7 @@
                             <div class="search-input-wrap">
                                 <svg class="search-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                                 <input type="text" id="searchInput" class="search-input" placeholder="Ask anything about Dellulu — products, orders, customers, campaigns, insights…" autocomplete="off" spellcheck="false" />
-                                <button id="searchAiBtn" class="search-ai-btn" title="Ask Claude — natural-language analytics over your Dellulu data (enable in Step G)" disabled>✨ Ask AI</button>
+                                <button id="searchAiBtn" class="search-ai-btn" title="Ask Claude — natural-language analytics over your Dellulu data">Ask <svg width="14" height="14" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;margin-left:4px;"><path d="M50.228 170.094l45.317-25.453.758-2.21-.758-1.222h-2.21l-7.564-.466-25.84-.7-22.42-.932-21.722-1.165-5.471-1.165L0 109.685l.523-3.317 4.598-3.085 6.574.582 14.563.991 21.838 1.514 15.844.933 23.471 2.444h3.726l.523-1.514-1.279-.932-.991-.932-22.654-15.378-24.522-16.193-12.836-9.336-6.945-4.706-3.502-4.443-1.515-9.733 6.226-6.852 8.353.582 2.138.583 8.499 6.514 18.082 14 23.612 17.387 3.46 2.876.687-.49.086-.349-.785-1.311-6.502-11.751-6.95-11.96-3.084-4.95-.815-2.969a14.121 14.121 0 0 1-.49-3.501l7.072-9.6 3.901-1.281 9.421 1.281 3.929 3.434 5.819 13.323 9.412 20.95 14.642 28.55 4.275 8.469 2.299 7.832.815 2.385.93-.058v-1.34l.7-9.24 1.396-11.314 1.339-14.557.523-4.124 2.444-5.937 4.853-3.171 3.793.58 3.171 4.493-.466 2.91-1.978 12.835-3.94 20.366-2.444 13.682h1.398l1.629-1.628 6.59-8.737 11.022-13.798 4.881-5.471 5.704-6.052 3.609-2.852h6.814l5.005 7.426-2.21 7.659-7.018 8.9-5.937 7.658-8.47 11.401-5.355 9.198.582 1.978 1.514.378 23.117-4.893 12.464-2.297 14.872-2.444 6.755 3.085.815 3.143-2.618 6.405-15.762 3.901-18.516 3.755-27.572 6.529-.349.233.39.466 12.488 1.157 5.355.291h13.09l24.347 1.808 6.347 4.193 3.785 5.119-.524 3.901-9.802 5.005-13.245-3.085-30.831-7.367-10.667-2.677-1.515.582v.932l8.939 8.732 15.989 14.464 20.026 18.633.992 4.482-2.529 3.493-2.704-.378-17.443-13.069-6.812-5.937-15.355-12.952-1.106-.176-.466.523.146 1.866 7.122 10.5 16.426 22.187 1.04 6.347-1.04 3.379-3.55 1.281-3.96-.7-8.06-11.42-8.354-12.79-6.987-11.984-.815.466-4.3 47.043-2.094 2.43-4.804 1.747-3.787-3.05-2.094-4.85 2.094-9.49 2.385-12.32 1.978-9.7 1.747-12.027 1.105-3.95-.058-.467-.989-.262-9.198 12.605-13.99 19.043-11.06 11.808-2.677.989-4.503-2.329.349-4.328 2.502-3.668 14.93-19.043 9.045-11.83 5.821-6.812-.058-.991h-.349L4.91 198.802 0 192.225l1.398-8.5 11.59-7.927 24.347-14.59z" fill="#D97757"/></svg></button>
                             </div>
                             <div class="search-hint">
                                 <span><kbd>⌘K</kbd> focus · <kbd>↑↓</kbd> navigate · <kbd>Enter</kbd> open · <kbd>Esc</kbd> clear</span>
@@ -7369,10 +7435,14 @@
     _renderActiveFilterBanner();
 
     // ==================== SEARCH (spotlight) ====================
-    // Tier 1 — instant client-side over DATA + intent recognition. Tier 2 (Claude API) is
-    // a separate Supabase edge function; the "Ask AI" button is wired but disabled until
-    // ANTHROPIC_API_KEY is configured server-side.
-    let _chatMessages = [];  // populated by Step G (chat mode); kept here so Tier 1 guards work
+    // Tier 1 — instant client-side over DATA + intent recognition.
+    // Tier 2 — "Ask Claude" routes through the dellulu-ai-search Supabase edge function
+    //         (Haiku 4.5 default, Sonnet 4.6 allowlist, no Opus). Multi-turn chat keeps
+    //         conversation history; first user turn carries a JSON snapshot of dashboard
+    //         data, follow-ups stay tight.
+    const _CLAUDE_SVG_S = '<svg width="14" height="14" viewBox="0 0 256 256"><path d="M50.228 170.094l45.317-25.453.758-2.21-.758-1.222h-2.21l-7.564-.466-25.84-.7-22.42-.932-21.722-1.165-5.471-1.165L0 109.685l.523-3.317 4.598-3.085 6.574.582 14.563.991 21.838 1.514 15.844.933 23.471 2.444h3.726l.523-1.514-1.279-.932-.991-.932-22.654-15.378-24.522-16.193-12.836-9.336-6.945-4.706-3.502-4.443-1.515-9.733 6.226-6.852 8.353.582 2.138.583 8.499 6.514 18.082 14 23.612 17.387 3.46 2.876.687-.49.086-.349-.785-1.311-6.502-11.751-6.95-11.96-3.084-4.95-.815-2.969a14.121 14.121 0 0 1-.49-3.501l7.072-9.6 3.901-1.281 9.421 1.281 3.929 3.434 5.819 13.323 9.412 20.95 14.642 28.55 4.275 8.469 2.299 7.832.815 2.385.93-.058v-1.34l.7-9.24 1.396-11.314 1.339-14.557.523-4.124 2.444-5.937 4.853-3.171 3.793.58 3.171 4.493-.466 2.91-1.978 12.835-3.94 20.366-2.444 13.682h1.398l1.629-1.628 6.59-8.737 11.022-13.798 4.881-5.471 5.704-6.052 3.609-2.852h6.814l5.005 7.426-2.21 7.659-7.018 8.9-5.937 7.658-8.47 11.401-5.355 9.198.582 1.978 1.514.378 23.117-4.893 12.464-2.297 14.872-2.444 6.755 3.085.815 3.143-2.618 6.405-15.762 3.901-18.516 3.755-27.572 6.529-.349.233.39.466 12.488 1.157 5.355.291h13.09l24.347 1.808 6.347 4.193 3.785 5.119-.524 3.901-9.802 5.005-13.245-3.085-30.831-7.367-10.667-2.677-1.515.582v.932l8.939 8.732 15.989 14.464 20.026 18.633.992 4.482-2.529 3.493-2.704-.378-17.443-13.069-6.812-5.937-15.355-12.952-1.106-.176-.466.523.146 1.866 7.122 10.5 16.426 22.187 1.04 6.347-1.04 3.379-3.55 1.281-3.96-.7-8.06-11.42-8.354-12.79-6.987-11.984-.815.466-4.3 47.043-2.094 2.43-4.804 1.747-3.787-3.05-2.094-4.85 2.094-9.49 2.385-12.32 1.978-9.7 1.747-12.027 1.105-3.95-.058-.467-.989-.262-9.198 12.605-13.99 19.043-11.06 11.808-2.677.989-4.503-2.329.349-4.328 2.502-3.668 14.93-19.043 9.045-11.83 5.821-6.812-.058-.991h-.349L4.91 198.802 0 192.225l1.398-8.5 11.59-7.927 24.347-14.59z" fill="#D97757"/></svg>';
+    let _chatMessages = [];      // [{role, content, displayContent?, model?, usage?}]
+    let _aiInflight = false;
     const SEARCH_SUGGESTIONS = [
         { icon: '🏆', label: 'Top selling products',     q: 'top products' },
         { icon: '📅', label: "Today's metrics",          q: 'today' },
@@ -7985,6 +8055,305 @@
             switchToTab('ads');
         }
     }
+
+    // ---------- Tier 2 — Ask Claude ----------
+    // Compact summary of the dashboard's loaded data, sent as JSON context to
+    // dellulu-ai-search alongside the operator's natural-language question.
+    function _buildAiContext() {
+        const dm = DATA.dailyMetrics || [];
+        if (!dm.length) return { note: 'dashboard data not yet loaded' };
+        const sum = (arr, k) => arr.reduce((a, r) => a + (r[k] || 0), 0);
+        const r2 = (n) => Math.round(n);
+        const last7  = dm.slice(-7);
+        const last30 = dm.slice(-30);
+        const today  = dm[dm.length - 1];
+        const yest   = dm[dm.length - 2];
+
+        const top10 = _productsScored(30).slice(0, 10).map(r => ({
+            name: r.p.name, id: r.p.id, rev_30d: r2(r.rev), qty_30d: r.qty,
+            cost_per_unit: r.p.cost_per_item, gst_pct: r.p.gst_percent,
+        }));
+
+        const cutoff30Str = (() => { const c = new Date(); c.setDate(c.getDate() - 30); return c.toISOString().slice(0, 10); })();
+        const ads30 = (DATA.adSpend || []).filter(a => a.date >= cutoff30Str && a.campaign_name !== 'Meta - Aggregate' && a.campaign_id);
+        const brands = {};
+        for (const a of ads30) {
+            const k = _normalizeProductKey(a.campaign_name);
+            brands[k] = brands[k] || { spend: 0, rev: 0, purchases: 0 };
+            brands[k].spend     += parseFloat(a.spend) || 0;
+            brands[k].rev       += parseFloat(a.purchase_value) || 0;
+            brands[k].purchases += parseInt(a.purchases) || 0;
+        }
+        const topBrands = Object.entries(brands)
+            .map(([k, v]) => ({ brand: k, spend_30d: r2(v.spend), rev_30d: r2(v.rev), roas: v.spend > 0 ? +(v.rev / v.spend).toFixed(2) : 0, purchases: v.purchases }))
+            .sort((a, b) => b.spend_30d - a.spend_30d).slice(0, 12);
+
+        const cutoff30 = new Date(); cutoff30.setDate(cutoff30.getDate() - 30);
+        const allShips = (DATA.shipments?.raw) || [];
+        const ships30 = allShips.filter(s => s.shipped_at && new Date(s.shipped_at) >= cutoff30);
+
+        const statusBreakdown = (arr) => {
+            const out = { delivered: 0, rto_initiated: 0, rto_in_transit: 0, rto_delivered: 0, in_transit: 0, out_for_delivery: 0, fulfilled_untracked: 0, cancelled: 0, ndr: 0, other: 0 };
+            for (const s of arr) {
+                const st = s.status || '';
+                if (st === 'delivered') out.delivered++;
+                else if (st === 'rto' || st === 'rto_initiated') out.rto_initiated++;
+                else if (st === 'rto_in_transit') out.rto_in_transit++;
+                else if (st === 'rto_delivered') out.rto_delivered++;
+                else if (st === 'in_transit') out.in_transit++;
+                else if (st === 'out_for_delivery') out.out_for_delivery++;
+                else if (st === 'fulfilled') out.fulfilled_untracked++;
+                else if (st === 'cancelled') out.cancelled++;
+                else out.other++;
+                if ((s.ndr_count || 0) > 0) out.ndr++;
+            }
+            return out;
+        };
+
+        const aggAllTime = {};
+        for (const s of allShips) {
+            const k = (s.aggregator || 'unknown').toLowerCase();
+            aggAllTime[k] = aggAllTime[k] || { total: 0, delivered: 0, rto: 0, ndr: 0 };
+            aggAllTime[k].total++;
+            if (s.status === 'delivered') aggAllTime[k].delivered++;
+            if (_isRto(s))                aggAllTime[k].rto++;
+            if ((s.ndr_count || 0) > 0)   aggAllTime[k].ndr++;
+        }
+        for (const k of Object.keys(aggAllTime)) {
+            const v = aggAllTime[k];
+            v.rto_pct = +_canonicalRtoRate(v.delivered, v.rto).toFixed(1);
+        }
+
+        const codDelivered = allShips.filter(s => s.payment_mode === 'cod'     && s.status === 'delivered').length;
+        const codRto       = allShips.filter(s => s.payment_mode === 'cod'     && _isRto(s)).length;
+        const ppDelivered  = allShips.filter(s => s.payment_mode === 'prepaid' && s.status === 'delivered').length;
+        const ppRto        = allShips.filter(s => s.payment_mode === 'prepaid' && _isRto(s)).length;
+
+        const byZone = {}, byState = {};
+        for (const s of allShips) {
+            if (s.delivery_zone) {
+                const z = s.delivery_zone;
+                byZone[z] = byZone[z] || { total: 0, delivered: 0, rto: 0 };
+                byZone[z].total++;
+                if (s.status === 'delivered') byZone[z].delivered++;
+                if (_isRto(s))                byZone[z].rto++;
+            }
+            if (s.dest_state) {
+                const st = s.dest_state;
+                byState[st] = byState[st] || { total: 0, delivered: 0, rto: 0 };
+                byState[st].total++;
+                if (s.status === 'delivered') byState[st].delivered++;
+                if (_isRto(s))                byState[st].rto++;
+            }
+        }
+        const topZones = Object.entries(byZone).map(([z, v]) => ({ zone: z, total: v.total, delivered: v.delivered, rto: v.rto, rto_pct: +_canonicalRtoRate(v.delivered, v.rto).toFixed(1) })).sort((a, b) => b.total - a.total).slice(0, 8);
+        const worstStates = Object.entries(byState).map(([s, v]) => ({ state: s, total: v.total, rto: v.rto, rto_pct: +_canonicalRtoRate(v.delivered, v.rto).toFixed(1) })).filter(x => (x.total) >= 20).sort((a, b) => b.rto_pct - a.rto_pct).slice(0, 8);
+
+        const ndrReasons = {};
+        for (const s of allShips) {
+            if (!s.ndr_reason) continue;
+            const r = String(s.ndr_reason).slice(0, 80);
+            ndrReasons[r] = (ndrReasons[r] || 0) + 1;
+        }
+        const topNdrReasons = Object.entries(ndrReasons).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([r, c]) => ({ reason: r, count: c }));
+
+        return {
+            today_date: new Date().toISOString().slice(0, 10),
+            currency: 'INR',
+            product_filter_active: productFilter.mode === 'subset' ? [...productFilter.ids] : null,
+            today:     today ? { d: today.d, rev: r2(today.rev), orders: today.orders, profit: r2(today.profit), margin_pct: +today.margin?.toFixed(1), ad_spend: r2(today.adSpend) } : null,
+            yesterday: yest  ? { d: yest.d,  rev: r2(yest.rev),  orders: yest.orders,  profit: r2(yest.profit),  margin_pct: +yest.margin?.toFixed(1),  ad_spend: r2(yest.adSpend) } : null,
+            last_7d:  { rev: r2(sum(last7,'rev')),  orders: sum(last7,'orders'),  profit: r2(sum(last7,'profit')),  ad_spend: r2(sum(last7,'adSpend')),  cogs: r2(sum(last7,'cogs')),  delivered: sum(last7,'delivered'),  rto: sum(last7,'rto')  },
+            last_30d: { rev: r2(sum(last30,'rev')), orders: sum(last30,'orders'), profit: r2(sum(last30,'profit')), ad_spend: r2(sum(last30,'adSpend')), cogs: r2(sum(last30,'cogs')), delivered: sum(last30,'delivered'), rto: sum(last30,'rto') },
+            top_products_30d: top10,
+            top_brands_by_spend_30d: topBrands,
+            shipping_30d_status_breakdown: statusBreakdown(ships30),
+            shipping_alltime: {
+                total_shipments: allShips.length,
+                status_breakdown: statusBreakdown(allShips),
+                blended_rto_pct: +_canonicalRtoRate(allShips.filter(s => s.status === 'delivered').length, allShips.filter(_isRto).length).toFixed(1),
+                by_aggregator: aggAllTime,
+                by_payment_mode: {
+                    cod:     { delivered: codDelivered, rto: codRto, rto_pct: +_canonicalRtoRate(codDelivered, codRto).toFixed(1) },
+                    prepaid: { delivered: ppDelivered,  rto: ppRto,  rto_pct: +_canonicalRtoRate(ppDelivered,  ppRto).toFixed(1) },
+                },
+                top_zones_by_volume: topZones,
+                worst_states_by_rto_pct: worstStates,
+                top_ndr_reasons: topNdrReasons,
+            },
+            campaign_attribution_30d: DATA.campaignAttributionSummary?.spend30d ? { attributed: r2(DATA.campaignAttributionSummary.spend30d.attributed), unattributed: r2(DATA.campaignAttributionSummary.spend30d.unattributed) } : null,
+            _data_notes: [
+                "Dellulu runs ITL + Velocity (both active). ITL RTO ~20%, Velocity RTO ~1% historically — large gap, lean Velocity where possible.",
+                "Brand-level numbers: aggregate orders/items by joining order_items.product_id -> product brand-key (_normalizeProductKey on product name).",
+                "Recent shipments (within last 30d) often have status='fulfilled' because the tracking-sync function refreshes on a delayed cron. For RTO/delivery analysis, prefer shipping_alltime.",
+                "shipping_30d_status_breakdown.fulfilled_untracked > 0 means those shipments are physically moving but their tracking status hasn't been refreshed yet.",
+            ],
+        };
+    }
+
+    // Tiny markdown -> HTML for Claude's response. Handles bold/italic/code/lists/headers/paragraphs.
+    function _renderSimpleMarkdown(md) {
+        if (!md) return '';
+        let s = String(md)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/```([\s\S]*?)```/g, (_, c) => `<pre style="background:var(--surface-2);padding:10px 12px;border-radius:6px;overflow-x:auto;font-size:11px;margin:8px 0;">${c}</pre>`)
+            .replace(/`([^`\n]+)`/g, '<code style="background:var(--surface-2);padding:1px 5px;border-radius:3px;font-family:ui-monospace,SFMono-Regular,monospace;font-size:90%;">$1</code>')
+            .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/(?<!\*)\*(?!\*)([^*\n]+)\*/g, '<em>$1</em>')
+            .replace(/^### (.+)$/gm, '<h4 style="margin:14px 0 6px;font-size:14px;color:var(--text-pri);">$1</h4>')
+            .replace(/^## (.+)$/gm, '<h3 style="margin:16px 0 6px;font-size:15px;color:var(--text-pri);">$1</h3>')
+            .replace(/^# (.+)$/gm, '<h2 style="margin:18px 0 8px;font-size:16px;color:var(--text-pri);">$1</h2>');
+        s = s.replace(/((?:^[-•*]\s.+\n?)+)/gm, (block) => {
+            const items = block.trim().split(/\n/).map(line => line.replace(/^[-•*]\s+/, '')).map(li => `<li>${li}</li>`).join('');
+            return `<ul style="margin:8px 0;padding-left:22px;line-height:1.55;">${items}</ul>`;
+        });
+        s = s.replace(/((?:^\d+\.\s.+\n?)+)/gm, (block) => {
+            const items = block.trim().split(/\n/).map(line => line.replace(/^\d+\.\s+/, '')).map(li => `<li>${li}</li>`).join('');
+            return `<ol style="margin:8px 0;padding-left:22px;line-height:1.55;">${items}</ol>`;
+        });
+        const parts = s.split(/\n{2,}/).map(part => {
+            if (part.startsWith('<') || part.trim() === '') return part;
+            return `<p style="margin:8px 0;line-height:1.55;">${part.replace(/\n/g, '<br/>')}</p>`;
+        });
+        return parts.join('');
+    }
+
+    function _resetChat() {
+        _chatMessages = [];
+        const spotlight = document.querySelector('.search-spotlight');
+        if (spotlight) spotlight.classList.remove('chat-mode');
+        const input = document.getElementById('searchInput');
+        if (input) {
+            input.placeholder = 'Ask anything about Dellulu — products, orders, customers, campaigns, insights…';
+            input.value = '';
+            input.focus();
+        }
+        _runSearch('');
+    }
+
+    function _renderChatBubble(msg) {
+        if (msg.role === 'user') {
+            return `<div class="chat-msg chat-msg-user">
+                <div class="chat-msg-icon">You</div>
+                <div class="chat-msg-bubble">${(msg.displayContent || msg.content).replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>
+            </div>`;
+        }
+        const usage = msg.usage || {};
+        const cached = usage.cache_read_input_tokens || 0;
+        const fresh  = usage.input_tokens || 0;
+        const out    = usage.output_tokens || 0;
+        const model  = (msg.model || '').replace(/^claude-/, '');
+        return `<div class="chat-msg chat-msg-claude">
+            <div class="chat-msg-icon">${_CLAUDE_SVG_S}</div>
+            <div class="chat-msg-bubble">
+                <div>${_renderSimpleMarkdown(msg.content)}</div>
+                <div class="chat-msg-meta">
+                    <span>${model || 'claude'}</span>
+                    <span>${fresh.toLocaleString()} fresh + ${cached.toLocaleString()} cached → ${out.toLocaleString()} out</span>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function _renderChatThread(thinking) {
+        if (!_chatMessages.length && !thinking) return '';
+        const bubbles = _chatMessages.map(_renderChatBubble).join('');
+        const thinkingNode = thinking
+            ? `<div class="chat-thinking">
+                <div class="chat-msg-icon">${_CLAUDE_SVG_S}</div>
+                <div class="chat-msg-bubble" style="display:flex;align-items:center;gap:10px;color:var(--text-sec);font-size:12px;">
+                    <span class="chat-thinking-dots"><span></span><span></span><span></span></span>
+                    <span>Claude is thinking…</span>
+                </div>
+            </div>`
+            : '';
+        const turns = _chatMessages.filter(m => m.role === 'user').length;
+        return `<div class="chat-thread" id="chatThread">
+            <div class="chat-thread-header">
+                <span class="chat-thread-header-title">${_CLAUDE_SVG_S} Conversation · ${turns} turn${turns === 1 ? '' : 's'}</span>
+                <button class="chat-thread-clear" onclick="_resetChat()">× New chat</button>
+            </div>
+            ${bubbles}
+            ${thinkingNode}
+        </div>`;
+    }
+
+    function _renderChatThreadInto(thinking) {
+        const spotlight = document.querySelector('.search-spotlight');
+        if (spotlight) spotlight.classList.toggle('chat-mode', _chatMessages.length > 0);
+        const sugg = document.getElementById('searchSuggestions');
+        if (sugg) sugg.style.display = _chatMessages.length ? 'none' : 'flex';
+        const wrap = document.getElementById('searchResults');
+        if (wrap) wrap.innerHTML = _renderChatThread(thinking);
+    }
+
+    function _scrollChatToBottom() {
+        requestAnimationFrame(() => {
+            const last = document.querySelectorAll('#chatThread .chat-msg, #chatThread .chat-thinking');
+            const target = last[last.length - 1];
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        });
+    }
+
+    async function _askClaude() {
+        if (_aiInflight) return;
+        const inputEl = document.getElementById('searchInput');
+        const q = (inputEl?.value || '').trim();
+        if (!q) { inputEl?.focus(); return; }
+        _aiInflight = true;
+        const aiBtn = document.getElementById('searchAiBtn');
+        const btnOriginal = aiBtn ? aiBtn.innerHTML : '';
+        if (aiBtn) { aiBtn.disabled = true; aiBtn.innerHTML = 'Thinking…'; }
+
+        const isFirstTurn = _chatMessages.length === 0;
+        const contextPayload = isFirstTurn ? _buildAiContext() : null;
+        const sentContent = isFirstTurn
+            ? `${q}\n\nDashboard context (JSON):\n\`\`\`json\n${JSON.stringify(contextPayload, null, 2)}\n\`\`\``
+            : q;
+
+        _chatMessages.push({ role: 'user', content: sentContent, displayContent: q });
+        if (inputEl) { inputEl.value = ''; inputEl.placeholder = 'Ask a follow-up…'; }
+        _renderChatThreadInto(true);
+        _scrollChatToBottom();
+
+        try {
+            const messages = _chatMessages.map(m => ({ role: m.role, content: m.content }));
+            const res = await fetch(`${SUPABASE_URL}/functions/v1/dellulu-ai-search`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY, 'apikey': SUPABASE_KEY },
+                body: JSON.stringify({ messages }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                const noKey = res.status === 503;
+                _chatMessages.push({
+                    role: 'assistant',
+                    content: noKey
+                        ? `**Set ANTHROPIC_API_KEY to enable.**\n\nQuick setup:\n1. Get a key from \`console.anthropic.com\` → Settings → API Keys\n2. Supabase dashboard → Project \`dellulu-finance\` → Edge Functions → Manage secrets\n3. Add secret \`ANTHROPIC_API_KEY\` = your key\n4. Reload and ask again`
+                        : `**Error.** ${data.error || 'unknown'}`,
+                });
+            } else {
+                _chatMessages.push({
+                    role: 'assistant',
+                    content: data.answer || '(no response)',
+                    model: data.model,
+                    usage: data.usage,
+                });
+            }
+        } catch (e) {
+            console.error('[ai-search]', e);
+            _chatMessages.push({ role: 'assistant', content: `**Network error.** ${e.message}` });
+        } finally {
+            _aiInflight = false;
+            if (aiBtn) { aiBtn.disabled = false; aiBtn.innerHTML = btnOriginal; }
+            _renderChatThreadInto(false);
+            _scrollChatToBottom();
+            if (inputEl) inputEl.focus();
+        }
+    }
+
+    // Expose _resetChat for the inline onclick on the 'New chat' button.
+    window._resetChat = _resetChat;
 
     document.addEventListener('DOMContentLoaded', () => {
         const input = document.getElementById('searchInput');
