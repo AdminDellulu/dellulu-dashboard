@@ -3131,12 +3131,14 @@
         const totalProfit = sum(data,'profit'), totalAdSpend = sum(data,'adSpend');
         const aov = totalOrders > 0 ? totalRev/totalOrders : 0;
         const roas = totalAdSpend > 0 ? totalRev/totalAdSpend : 0;
-        const rtoRate = totalOrders > 0 ? (sum(data,'rto')/totalOrders)*100 : 0;
+        // Canonical RTO Rate = RTO / (Delivered + RTO). See KPI_AUDIT.md §3a.
+        const rtoRate = _canonicalRtoRate(sum(data,'delivered'), sum(data,'rto'));
         const prepaidPct = totalOrders > 0 ? (totalPrepaid/totalOrders)*100 : 0;
         const margin = totalRev > 0 ? (totalProfit/totalRev)*100 : 0;
-        const avgCac = data.length > 0 ? data.reduce((a,d)=>a+d.cac,0)/data.length : 0;
+        // Weighted CAC = total spend / total orders (was day-mean which deflates with low-volume days).
+        const avgCac = totalOrders > 0 ? totalAdSpend / totalOrders : 0;
 
-        const allData = DATA.dailyMetrics;
+        const allData = getFilteredDailyMetrics('all');  // respects product filter for prior-period comparison
         let prevRev = 0, prevProfit = 0, prevOrders = 0, prevAdSpend = 0, prevRoas = 0;
         if (isHourlyMode(dur)) {
             // For today: compare vs yesterday's daily_metrics row; for yesterday: compare vs day before
@@ -3203,17 +3205,19 @@
         if (roas < 2 && totalAdSpend > 0) alerts += `<div class="alert-banner warning" style="display:flex;align-items:center;gap:10px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>ROAS below 2x (${roas.toFixed(2)}x) — review underperforming campaigns</span></div>`;
         document.getElementById('overviewAlerts').innerHTML = alerts;
 
-        // Ad Efficiency Snapshot — respects product filter via brand-key attribution.
-        const adData = getFilteredAdSpend('all');
-        const totalAdSpendAll = adData.reduce((s,a) => s + (a.spend||0), 0);
-        const totalAdRev = adData.reduce((s,a) => s + (a.revenue||0), 0);
+        // Ad Efficiency Snapshot — honor duration selector + product filter, exclude Meta - Aggregate roll-up.
+        // Column is `purchase_value` (Meta-attributed revenue) — the previous read of `a.revenue` always
+        // resolved to undefined, making every campaign's ROAS render as 0.0x.
+        const adData = getFilteredAdSpend(dur).filter(a => a.campaign_name !== 'Meta - Aggregate');
+        const totalAdSpendAll = adData.reduce((s,a) => s + (parseFloat(a.spend)||0), 0);
+        const totalAdRev = adData.reduce((s,a) => s + (parseFloat(a.purchase_value)||0), 0);
         const blendedROAS = totalAdSpendAll > 0 ? totalAdRev / totalAdSpendAll : 0;
         const campaigns = {};
         adData.forEach(a => {
             const name = a.campaign_name || 'Unknown';
             if (!campaigns[name]) campaigns[name] = {spend:0, rev:0};
-            campaigns[name].spend += a.spend||0;
-            campaigns[name].rev += a.revenue||0;
+            campaigns[name].spend += parseFloat(a.spend)||0;
+            campaigns[name].rev   += parseFloat(a.purchase_value)||0;
         });
         const totalAdClicks = adData.reduce((s,a) => s + (a.clicks||0), 0);
         const avgCPC = totalAdClicks > 0 ? totalAdSpendAll / totalAdClicks : 0;
@@ -3318,12 +3322,17 @@
         </table>`;
 
         // Cash Flow Reality (cash position widget)
-        const cashPrepaid = sum(data,'cashPrepaid') || (totalPrepaid > 0 ? totalRev * (totalPrepaid/(totalCOD+totalPrepaid+0.01)) : 0);
+        // Don't short-circuit a legit zero with `||` — distinguish "no cashPrepaid recorded" from "zero cashPrepaid".
+        const _cashPrepaidRaw = sum(data, 'cashPrepaid');
+        const cashPrepaid = _cashPrepaidRaw > 0
+            ? _cashPrepaidRaw
+            : (totalPrepaid > 0 ? totalRev * (totalPrepaid / (totalCOD + totalPrepaid + 0.01)) : 0);
         const cashCOD = sum(data,'cashCOD');
         const codRevenue = totalCOD > 0 ? totalRev * (totalCOD/(totalCOD+totalPrepaid+0.01)) : 0;
         const codPending = Math.max(0, codRevenue - cashCOD);
         const totalCashIn = cashPrepaid + cashCOD;
-        const totalCashOut = totalCOGS + totalAdSpend + totalShip + totalPkg;
+        // Include GST + gateway fees in cash outflows — they are real cash going out.
+        const totalCashOut = totalCOGS + totalAdSpend + totalShip + totalPkg + totalGST + totalGW;
         const netCashPosition = totalCashIn - totalCashOut;
         const codPct = totalOrders > 0 ? (totalCOD/totalOrders*100).toFixed(0) : 0;
 
@@ -4685,18 +4694,22 @@
     function renderFinance() {
         const dur = document.getElementById('durationSelect').value;
         const data = getFilteredData(dur);
-        const allDM = DATA.dailyMetrics;
+        const allDM = getFilteredDailyMetrics('all');  // respects product filter for last7/prior7 windows
         const totalRev=sum(data,'rev'), totalProfit=sum(data,'profit'), totalCOGS=sum(data,'cogs');
         const totalGST=sum(data,'gst'), totalPkg=sum(data,'pkg'), totalShip=sum(data,'ship');
         const totalGW=sum(data,'gw'), totalAdSpend=sum(data,'adSpend'), totalOrders=sum(data,'orders');
         const totalRtoCost=sum(data,'rtoCost');
+        // COD/Prepaid pulled up front — fixes the Temporal Dead Zone bug where they were declared
+        // 44 lines below their first use inside the Cash Flow Reality section (ReferenceError on render).
+        const totalCOD = sum(data, 'cod'), totalPrepaid = sum(data, 'prepaid');
         const totalCosts=totalCOGS+totalGST+totalPkg+totalShip+totalGW+totalAdSpend+totalRtoCost;
         const margin=totalRev>0?(totalProfit/totalRev*100):0;
         const grossProfit = totalRev - totalCOGS;
         const grossMargin = totalRev>0?(grossProfit/totalRev*100):0;
         const opex = totalAdSpend + totalShip + totalPkg + totalGW + totalGST + totalRtoCost;
         const avgROAS = totalAdSpend>0?(totalRev/totalAdSpend):0;
-        const avgCAC = data.length>0?data.reduce((a,d)=>a+d.cac,0)/data.length:0;
+        // Weighted CAC = total spend / total orders (was day-mean which deflates with low-volume days).
+        const avgCAC = totalOrders > 0 ? totalAdSpend / totalOrders : 0;
         const avgAOV = totalOrders>0?totalRev/totalOrders:0;
         const profitPerOrder = totalOrders>0?totalProfit/totalOrders:0;
 
@@ -4887,12 +4900,17 @@
         renderMarginCacChart(data, dur);
 
         // ====== CASH FLOW REALITY ======
-        const cashPrepaid = sum(data,'cashPrepaid') || (totalPrepaid > 0 ? totalRev * (totalPrepaid/(totalCOD+totalPrepaid+0.01)) : 0);
+        // Don't short-circuit a legit zero with `||` — distinguish "no cashPrepaid recorded" from "zero cashPrepaid".
+        const _cashPrepaidRaw = sum(data, 'cashPrepaid');
+        const cashPrepaid = _cashPrepaidRaw > 0
+            ? _cashPrepaidRaw
+            : (totalPrepaid > 0 ? totalRev * (totalPrepaid / (totalCOD + totalPrepaid + 0.01)) : 0);
         const cashCOD = sum(data,'cashCOD');
         const codRevenue = totalCOD > 0 ? totalRev * (totalCOD/(totalCOD+totalPrepaid+0.01)) : 0;
         const codPending = Math.max(0, codRevenue - cashCOD);
         const totalCashIn = cashPrepaid + cashCOD;
-        const totalCashOut = totalCOGS + totalAdSpend + totalShip + totalPkg;
+        // Include GST + gateway fees in cash outflows — they are real cash going out.
+        const totalCashOut = totalCOGS + totalAdSpend + totalShip + totalPkg + totalGST + totalGW;
         const netCashPosition = totalCashIn - totalCashOut;
         const codPct = totalOrders > 0 ? (totalCOD/totalOrders*100).toFixed(0) : 0;
         document.getElementById('cashFlowReality').innerHTML = `
@@ -4931,7 +4949,7 @@
         const adPerOrder = totalOrders > 0 ? totalAdSpend / totalOrders : 0;
         const shipPerOrder = totalOrders > 0 ? totalShip / totalOrders : 0;
         const feePerOrder = totalOrders > 0 ? (totalGW + totalGST + totalPkg + totalRtoCost) / totalOrders : 0;
-        const totalCOD = sum(data, 'cod'), totalPrepaid = sum(data, 'prepaid');
+        // (totalCOD/totalPrepaid declared at top of renderFinance — were previously re-declared here, causing redeclaration once moved up.)
         const prepaidPct = totalOrders > 0 ? (totalPrepaid / totalOrders * 100) : 0;
         document.getElementById('unitEconBody').innerHTML = `
             <div class="unit-econ-grid">
@@ -5329,7 +5347,9 @@
         const filteredRaw = getFilteredShipments(dur);
 
         // ====== RECOMPUTE ALL AGGREGATES FROM FILTERED DATA ======
-        function newBkt(name) { return { name, total: 0, delivered: 0, rto: 0, fulfilled: 0, pending: 0, cancelled: 0, cost: 0, rtoCost: 0, codTotal: 0, codRemitted: 0, codLocked: 0, ndrTotal: 0, prepaid: 0, cod: 0 }; }
+        function newBkt(name) { return { name, total: 0, delivered: 0, rto: 0, fulfilled: 0, pending: 0, cancelled: 0, inTransit: 0, outForDelivery: 0, cost: 0, rtoCost: 0, codTotal: 0, codRemitted: 0, codLocked: 0, ndrTotal: 0, prepaid: 0, cod: 0 }; }
+        // NDR detection — prefer ndr_count > 0 over ndr_reason text (relying on text-only undercounts NDRs ~36×).
+        const _isNdr = s => (s.ndr_count||0) > 0 || (typeof s.ndr_reason === 'string' && s.ndr_reason.trim() !== '');
         const statusMap = {}; let totalShipCost = 0;
         const carrierMap = {};
         const aggregatorMap = {};
@@ -5357,6 +5377,8 @@
             else if (st === 'fulfilled') ag.fulfilled++;
             else if (st === 'pending') ag.pending++;
             else if (st === 'cancelled') ag.cancelled++;
+            else if (st === 'in_transit') ag.inTransit++;
+            else if (st === 'out_for_delivery') ag.outForDelivery++;
             ag.ndrTotal += (s.ndr_count||0);
             if (s.payment_mode === 'prepaid') ag.prepaid++; else if (s.payment_mode === 'cod') ag.cod++;
             // Carrier bucket
@@ -5368,6 +5390,8 @@
             else if (st === 'fulfilled') cm.fulfilled++;
             else if (st === 'pending') cm.pending++;
             else if (st === 'cancelled') cm.cancelled++;
+            else if (st === 'in_transit') cm.inTransit++;
+            else if (st === 'out_for_delivery') cm.outForDelivery++;
             cm.ndrTotal += (s.ndr_count||0);
             if (s.payment_mode === 'prepaid') cm.prepaid++; else if (s.payment_mode === 'cod') cm.cod++;
             // COD tracking — only count COD payment_mode shipments
@@ -6725,14 +6749,23 @@
 
     // ==================== RENDER: STRATEGY (Enhanced — Edits 5+6) ====================
     function renderStrategy() {
-        const dm = DATA.dailyMetrics;
-        const marchData = dm.filter(d => d.d.startsWith('2026-03'));
-        const totalRev = sum(marchData,'rev'), totalProfit = sum(marchData,'profit'), totalOrders = sum(marchData,'orders');
-        const avgMargin = marchData.length>0?marchData.reduce((a,d)=>a+d.margin,0)/marchData.length:0;
-        const avgAOV = totalOrders>0?totalRev/totalOrders:0;
-        const avgCAC = marchData.length>0?marchData.reduce((a,d)=>a+d.cac,0)/marchData.length:0;
-        const totalAd = sum(marchData,'adSpend');
-        const roas = totalRev/(totalAd||1);
+        // Re-anchored on current IST month (was previously hardcoded to '2026-03', freezing the
+        // entire Strategy tab to March data regardless of "today"). Source: flanq KPI audit fix.
+        const dm = getFilteredDailyMetrics('all');
+        const _istToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date()); // 'YYYY-MM-DD'
+        const _istYearMonth = _istToday.slice(0, 7);
+        const _istYear = parseInt(_istYearMonth.slice(0, 4), 10);
+        const _istMonth = parseInt(_istYearMonth.slice(5, 7), 10); // 1..12
+        const _daysInMonth = new Date(_istYear, _istMonth, 0).getDate();
+        const _monthName = new Date(_istYear, _istMonth - 1, 1).toLocaleString('en-US', { month: 'long' });
+        const monthData = dm.filter(d => d.d && d.d.startsWith(_istYearMonth));
+        // Recompute weighted metrics from sums (was averaging cac/margin per-day which deflates with low-revenue days).
+        const totalRev = sum(monthData, 'rev'), totalProfit = sum(monthData, 'profit'), totalOrders = sum(monthData, 'orders');
+        const avgMargin = totalRev > 0 ? (totalProfit / totalRev * 100) : 0;
+        const avgAOV = totalOrders > 0 ? totalRev / totalOrders : 0;
+        const totalAd = sum(monthData, 'adSpend');
+        const avgCAC = totalOrders > 0 ? totalAd / totalOrders : 0; // weighted CAC = monthly spend / monthly orders
+        const roas = totalAd > 0 ? totalRev / totalAd : 0;          // don't synthesize "1x" when there's no spend
         const rtoRate = DATA.shipments.total > 0 ? (DATA.shipments.rtoCount||0)/DATA.shipments.total*100 : 0;
         const prepaidPct = DATA.orders.total > 0 ? (DATA.orders.prepaidOrders/DATA.orders.total*100) : 0;
 
@@ -6745,10 +6778,10 @@
             <div class="kpi-card purple"><div class="kpi-top"><span class="kpi-label">Health Score</span><span class="kpi-icon-sm">💪</span></div>
                 <div class="kpi-value" style="color:${healthScore>70?'var(--green)':healthScore>40?'var(--gold)':'var(--red)'}">${healthScore}/100</div>
                 <div class="kpi-context">${healthScore>70?'<span class="up">Strong</span>':healthScore>40?'<span class="neutral">Moderate</span>':'<span class="down">Needs work</span>'}</div></div>
-            <div class="kpi-card teal"><div class="kpi-top"><span class="kpi-label">March Revenue</span><span class="kpi-icon-sm">📈</span></div>
+            <div class="kpi-card teal"><div class="kpi-top"><span class="kpi-label">${_monthName} Revenue</span><span class="kpi-icon-sm">📈</span></div>
                 <div class="kpi-value" style="color:var(--purple)">${fmtR(totalRev)}</div>
                 <div class="kpi-context"><span class="muted">${totalOrders} orders · AOV ${fmtR(avgAOV)}</span></div></div>
-            <div class="kpi-card green"><div class="kpi-top"><span class="kpi-label">March Profit</span><span class="kpi-icon-sm">🎯</span></div>
+            <div class="kpi-card green"><div class="kpi-top"><span class="kpi-label">${_monthName} Profit</span><span class="kpi-icon-sm">🎯</span></div>
                 <div class="kpi-value" style="color:${totalProfit>0?'var(--teal)':'var(--red)'}">${fmtR(totalProfit)}</div>
                 <div class="kpi-context"><span class="muted">Margin: ${pct(avgMargin)}</span></div></div>
         `;
@@ -6813,8 +6846,8 @@
         const zeroCogs = pp.filter(p => p.totalCogs === 0 && p.units > 0);
         const killCampaigns = cp.filter(c => c.roas < 1.5 && c.spend > 0);
         const scaleCampaigns = cp.filter(c => c.roas >= 3 && c.spend > 0);
-        const daysInMonth = 31;
-        const daysWithData = marchData.length;
+        const daysInMonth = _daysInMonth;
+        const daysWithData = monthData.length;
         const projectedRev = daysWithData > 0 ? (totalRev / daysWithData) * daysInMonth : 0;
         const projectedOrders = daysWithData > 0 ? Math.round((totalOrders / daysWithData) * daysInMonth) : 0;
         const projectedProfit = daysWithData > 0 ? (totalProfit / daysWithData) * daysInMonth : 0;
@@ -6866,13 +6899,13 @@
         // Growth chart
         dc('growth'); const cd = chartDefaults();
         const ctx = document.getElementById('growthChart');
-        if (ctx && marchData.length) {
+        if (ctx && monthData.length) {
             let cumRev = 0;
-            const cumData = marchData.map(d => { cumRev += d.rev; return cumRev; });
-            const targetDaily = revTarget / 31;
-            const targetLine = marchData.map((_,i) => targetDaily*(i+1));
+            const cumData = monthData.map(d => { cumRev += d.rev; return cumRev; });
+            const targetDaily = revTarget / _daysInMonth;
+            const targetLine = monthData.map((_,i) => targetDaily*(i+1));
             charts['growth'] = new Chart(ctx, { type: 'line', data: {
-                labels: marchData.map(d=>fmtDate(d.d)),
+                labels: monthData.map(d=>fmtDate(d.d)),
                 datasets: [
                     { label:'Actual', data:cumData, borderColor:B.purple, backgroundColor:'rgba(124,58,237,0.08)', borderWidth:3, tension:0.4, fill:true },
                     { label:'Target (₹35L)', data:targetLine, borderColor:B.gold, borderWidth:2, borderDash:[5,5], tension:0, pointRadius:0 }
