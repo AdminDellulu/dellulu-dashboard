@@ -2991,8 +2991,8 @@
         if (roas < 2 && totalAdSpend > 0) alerts += `<div class="alert-banner warning" style="display:flex;align-items:center;gap:10px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>ROAS below 2x (${roas.toFixed(2)}x) — review underperforming campaigns</span></div>`;
         document.getElementById('overviewAlerts').innerHTML = alerts;
 
-        // Ad Efficiency Snapshot
-        const adData = DATA.adSpend || [];
+        // Ad Efficiency Snapshot — respects product filter via brand-key attribution.
+        const adData = getFilteredAdSpend('all');
         const totalAdSpendAll = adData.reduce((s,a) => s + (a.spend||0), 0);
         const totalAdRev = adData.reduce((s,a) => s + (a.revenue||0), 0);
         const blendedROAS = totalAdSpendAll > 0 ? totalAdRev / totalAdSpendAll : 0;
@@ -3354,7 +3354,8 @@
 
     function renderNdrSummaryCard() {
         const el = document.getElementById('ndrSummaryCard'); if (!el) return;
-        const shipRaw = DATA.shipments.raw || [];
+        // Respect product filter; NDR summary is an all-time KPI.
+        const shipRaw = getFilteredShipments('all');
         const ndrShipments = shipRaw.filter(s => s.ndr_reason && s.ndr_reason !== '');
         const ndrCount = ndrShipments.length;
         const totalShipped = shipRaw.length;
@@ -3725,27 +3726,10 @@
 
     // ==================== RENDER: ADS (Enhanced — Edits 3+4+7+8) ====================
     function renderAds() {
-        // Filter ad_spend by selected duration
+        // Filter ad_spend by selected duration + product filter (getFilteredAdSpend handles both).
         const dur = document.getElementById('durationSelect').value;
         const allDM = DATA.dailyMetrics;
-        let filteredAds = [...(DATA.adSpend || [])];
-        if (dur !== 'all' && allDM.length) {
-            const last = allDM[allDM.length-1].d;
-            if (dur === 'today') {
-                filteredAds = filteredAds.filter(a => a.date === last);
-            } else if (dur === 'yesterday') {
-                const yday = allDM.length > 1 ? allDM[allDM.length-2].d : last;
-                filteredAds = filteredAds.filter(a => a.date === yday);
-            } else if (dur === '7d') {
-                const c = new Date(last); c.setDate(c.getDate()-7);
-                const cutoff = c.toISOString().slice(0,10);
-                filteredAds = filteredAds.filter(a => a.date >= cutoff);
-            } else if (dur === '30d') {
-                const c = new Date(last); c.setDate(c.getDate()-30);
-                const cutoff = c.toISOString().slice(0,10);
-                filteredAds = filteredAds.filter(a => a.date >= cutoff);
-            }
-        }
+        let filteredAds = getFilteredAdSpend(dur);
 
         // KPI totals — all ad-level rows (only level stored since v6), excluding Meta - Aggregate
         const kpiRows = filteredAds.filter(a => a.campaign_name !== 'Meta - Aggregate');
@@ -4153,8 +4137,10 @@
             const daysWithSpend = dm.filter(d => d.adSpend > 0);
             const periodSpend = sum(dm, 'adSpend');
             const periodRev = sum(dm, 'rev');
+            // Hoist filtered ads once (respects product filter) so per-day click sums use the right slice.
+            const _attribAds = getFilteredAdSpend('all');
             const periodClicks = daysWithSpend.reduce((a,d) => {
-                const dayAds = DATA.adSpend.filter(ad => ad.date === d.d);
+                const dayAds = _attribAds.filter(ad => ad.date === d.d);
                 return a + dayAds.reduce((s,ad) => s + (ad.clicks||0), 0);
             }, 0);
             const periodROAS = periodSpend > 0 ? periodRev / periodSpend : 0;
@@ -5067,26 +5053,9 @@
     // ==================== RENDER: SHIPPING ====================
     function renderShipping() {
         const dur = document.getElementById('durationSelect').value;
-        const allRaw = DATA.shipments.raw || [];
-
-        // ====== FILTER RAW SHIPMENTS BY DURATION ======
-        let filteredRaw = allRaw;
-        if (dur !== 'all' && allRaw.length) {
-            // Use the same date logic as daily_metrics duration filter
-            const allDates = allRaw.filter(s => s.shipped_at).map(s => new Date(s.shipped_at));
-            const maxDate = allDates.length ? new Date(Math.max(...allDates)) : new Date();
-            let cutoff;
-            if (dur === 'today') { cutoff = new Date(maxDate); cutoff.setHours(0,0,0,0); }
-            else if (dur === 'yesterday') { cutoff = new Date(maxDate); cutoff.setDate(cutoff.getDate()-1); cutoff.setHours(0,0,0,0); }
-            else if (dur === '7d') { cutoff = new Date(maxDate); cutoff.setDate(cutoff.getDate()-7); }
-            else if (dur === '30d') { cutoff = new Date(maxDate); cutoff.setDate(cutoff.getDate()-30); }
-            if (cutoff) {
-                filteredRaw = allRaw.filter(s => {
-                    if (!s.shipped_at) return false; // exclude shipments without date in filtered views
-                    return new Date(s.shipped_at) >= cutoff;
-                });
-            }
-        }
+        // getFilteredShipments handles duration windowing + product filtering via _orderIdsInFilter.
+        const allRaw = getFilteredShipments('all');
+        const filteredRaw = getFilteredShipments(dur);
 
         // ====== RECOMPUTE ALL AGGREGATES FROM FILTERED DATA ======
         function newBkt(name) { return { name, total: 0, delivered: 0, rto: 0, fulfilled: 0, pending: 0, cancelled: 0, cost: 0, rtoCost: 0, codTotal: 0, codRemitted: 0, codLocked: 0, ndrTotal: 0, prepaid: 0, cod: 0 }; }
@@ -6380,7 +6349,8 @@
     }
 
     function renderShippingSettlements() {
-        const shipRaw = DATA.shipments.raw || [];
+        // All-time, product-filtered.
+        const shipRaw = getFilteredShipments('all');
         const codRem = DATA.codRemittances || [];
 
         // COD delivered by aggregator (pending settlement)
@@ -6847,21 +6817,9 @@
 
     function validateShippingRender() {
         const dur = document.getElementById('durationSelect').value;
-        const allRaw = DATA.shipments.raw || [];
         const checks = [];
-
-        // Path B: independently filter and compute
-        let filtered = allRaw;
-        if (dur !== 'all' && allRaw.length) {
-            const allDates = allRaw.filter(s => s.shipped_at).map(s => new Date(s.shipped_at));
-            const maxDate = allDates.length ? new Date(Math.max(...allDates)) : new Date();
-            let cutoff;
-            if (dur === 'today') { cutoff = new Date(maxDate); cutoff.setHours(0,0,0,0); }
-            else if (dur === 'yesterday') { cutoff = new Date(maxDate); cutoff.setDate(cutoff.getDate()-1); cutoff.setHours(0,0,0,0); }
-            else if (dur === '7d') { cutoff = new Date(maxDate); cutoff.setDate(cutoff.getDate()-7); }
-            else if (dur === '30d') { cutoff = new Date(maxDate); cutoff.setDate(cutoff.getDate()-30); }
-            if (cutoff) filtered = allRaw.filter(s => s.shipped_at && new Date(s.shipped_at) >= cutoff);
-        }
+        // Path B uses the same helper Path A uses now. Catches DOM-format divergence.
+        const filtered = getFilteredShipments(dur);
         const b_total = filtered.length;
         const b_delivered = filtered.filter(s => s.status === 'delivered').length;
         const b_rto = filtered.filter(s => s.status === 'rto' || s.is_rto).length;
