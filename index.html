@@ -4129,17 +4129,12 @@
         // ===== CARDS GRID (Product or Campaign view) =====
         let cardsHTML = '';
         if (_gb === 'product') {
-            cardsHTML = drawerProducts.map((p) => {
+            cardsHTML = drawerProducts.map((p, pIdx) => {
                 const action = classifyPerf(p.roas, p.spend);
                 const actionLabel = action === 'scale' ? 'SCALE ▲' : action === 'watch' ? 'WATCH' : action === 'kill' ? 'KILL ▼' : 'TESTING';
                 const roasColor = perfColor(p.roas, p.spend);
                 const cCount = p._campaigns.length;
-                // Click falls through to the largest-revenue child campaign's drawer until
-                // a dedicated product drawer is ported.
-                const topChild = p._campaigns[0];
-                const fallbackIdx = topChild ? drawerCampaigns.indexOf(topChild) : -1;
-                const clickAttr = fallbackIdx >= 0 ? `onclick="openDrawer(${fallbackIdx})"` : '';
-                return `<div class="campaign-card ${action}" ${clickAttr}>
+                return `<div class="campaign-card ${action}" onclick="openProductDrawer(${pIdx})">
                     <div class="campaign-name">${p.name}</div>
                     <div class="campaign-roas" style="color:${roasColor}">${p.spend > 0 ? p.roas.toFixed(2)+'x' : 'N/A'} <span class="roas-tag">ROAS</span></div>
                     <div class="campaign-metrics-grid">
@@ -9497,6 +9492,106 @@
             // Scroll back to cards section
             wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
+    }
+
+    function openProductDrawer(productIdx) {
+        const dp = window._drawerProducts;
+        if (!dp || !dp[productIdx]) return;
+        const p = dp[productIdx];
+        const f = window._fmtR;
+
+        document.querySelectorAll('.campaign-card').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.campaign-card')[productIdx]?.classList.add('active');
+
+        const roasColor = p.spend === 0 ? 'var(--text-sec)' : p.roas >= 3 ? 'var(--green)' : p.roas >= 1.5 ? 'var(--orange-warm)' : 'var(--red)';
+
+        document.getElementById('drawerTitle').textContent = `${p.name} · ${p._campaigns.length} campaign${p._campaigns.length>1?'s':''}`;
+        document.getElementById('drawerKpis').innerHTML = `
+            <div class="drawer-kpi"><div class="drawer-kpi-val" style="color:${roasColor}">${p.spend > 0 ? p.roas.toFixed(2)+'x' : 'N/A'}</div><div class="drawer-kpi-label">ROAS</div></div>
+            <div class="drawer-kpi"><div class="drawer-kpi-val" style="color:var(--purple)">${f(p.spend)}</div><div class="drawer-kpi-label">Spend</div></div>
+            <div class="drawer-kpi"><div class="drawer-kpi-val" style="color:${p.revenue > p.spend ? 'var(--green)' : 'var(--red)'}">${f(p.revenue)}</div><div class="drawer-kpi-label">Revenue</div></div>
+        `;
+
+        const campaigns = (p._campaigns || []).slice().sort((a, b) => b.revenue - a.revenue);
+        const _cls = (spend, roas) => spend === 0 ? 'testing' : roas >= 3 ? 'scale' : roas >= 1.5 ? 'watch' : 'kill';
+        const _col = (spend, roas) => spend === 0 ? 'var(--text-sec)' : roas >= 3 ? 'var(--green)' : roas >= 1.5 ? 'var(--orange-warm)' : 'var(--red)';
+        let bodyHTML = `<div class="drawer-section-title">${campaigns.length} Campaign${campaigns.length>1?'s':''} (sorted by revenue)</div>`;
+        bodyHTML += campaigns.map(c => {
+            const cClass = _cls(c.spend, c.roas);
+            const cColor = _col(c.spend, c.roas);
+            const adsets = c._adsets || [];
+            const hasAdsets = adsets.length > 0;
+            const adsetsHTML = hasAdsets ? adsets.map(as => {
+                const asClass = _cls(as.spend, as.roas);
+                const asColor = _col(as.spend, as.roas);
+                const ads = as._ads || [];
+                const hasAds = ads.length > 0;
+                const adsHTML = hasAds ? `<div style="font-size:9px;font-weight:700;color:var(--text-sec);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;margin-top:8px;">${ads.length} Ad${ads.length>1?'s':''}</div>` +
+                    ads.map(ad => {
+                        const adClass = _cls(ad.spend, ad.roas);
+                        const adColor = _col(ad.spend, ad.roas);
+                        return `<div class="ad-card ad-${adClass}">
+                            <div class="ad-header">
+                                <span class="ad-name">${ad.name}</span>
+                                <span class="ad-roas" style="color:${adColor}">${ad.spend > 0 ? ad.roas.toFixed(2)+'x' : '—'} <span class="ad-roas-tag">ROAS</span></span>
+                            </div>
+                            <div class="ad-metrics">
+                                <span class="adset-metric">Spend <strong>${f(ad.spend)}</strong></span>
+                                <span class="adset-metric">Rev <strong>${f(ad.revenue)}</strong></span>
+                                <span class="adset-metric">CPR <strong>${f(ad.cpr)}</strong></span>
+                                <span class="adset-metric">CTR <strong>${ad.ctr.toFixed(2)}%</strong></span>
+                                <span class="adset-metric">${ad.purchases} purchases</span>
+                            </div>
+                        </div>`;
+                    }).join('') : '';
+                const asOnclick = hasAds ? `onclick="event.stopPropagation(); this.classList.toggle('ad-expanded')"` : '';
+                return `<div class="adset-card adset-${asClass}${hasAds ? '' : ' no-ads'}" ${asOnclick}>
+                    <div class="adset-header">
+                        <span class="adset-name">${as.name}</span>
+                        <span class="adset-roas" style="color:${asColor}">${as.spend > 0 ? as.roas.toFixed(2)+'x' : 'N/A'}<span class="adset-roas-tag"> ROAS</span>${hasAds ? '<span class="adset-expand-icon">▼</span>' : ''}</span>
+                    </div>
+                    <div class="adset-metrics">
+                        <span class="adset-metric">Spend <strong>${f(as.spend)}</strong></span>
+                        <span class="adset-metric">Rev <strong>${f(as.revenue)}</strong></span>
+                        <span class="adset-metric">CPR <strong>${f(as.cpr)}</strong></span>
+                        <span class="adset-metric">CTR <strong>${as.ctr.toFixed(2)}%</strong></span>
+                        <span class="adset-metric">${as.purchases} purchases</span>
+                    </div>
+                    ${hasAds ? `<div class="ad-expand">${adsHTML}</div>` : ''}
+                </div>`;
+            }).join('') : '<div class="no-drill-data" style="font-size:10px">No adset breakdown for this period</div>';
+            const cOnclick = hasAdsets ? `onclick="event.stopPropagation(); this.classList.toggle('ad-expanded')"` : '';
+            return `<div class="adset-card adset-${cClass}${hasAdsets ? '' : ' no-ads'}" ${cOnclick}>
+                <div class="adset-header">
+                    <span class="adset-name">${c.name}</span>
+                    <span class="adset-roas" style="color:${cColor}">${c.spend > 0 ? c.roas.toFixed(2)+'x' : 'N/A'}<span class="adset-roas-tag"> ROAS</span>${hasAdsets ? '<span class="adset-expand-icon">▼</span>' : ''}</span>
+                </div>
+                <div class="adset-metrics">
+                    <span class="adset-metric">Spend <strong>${f(c.spend)}</strong></span>
+                    <span class="adset-metric">Rev <strong>${f(c.revenue)}</strong></span>
+                    <span class="adset-metric">CPR <strong>${f(c.cpa)}</strong></span>
+                    <span class="adset-metric">CTR <strong>${c.ctr.toFixed(2)}%</strong></span>
+                    <span class="adset-metric">${c.purchases} purchases</span>
+                </div>
+                ${hasAdsets ? `<div class="ad-expand">${adsetsHTML}</div>` : ''}
+            </div>`;
+        }).join('');
+
+        bodyHTML += `<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+            <div class="drawer-section-title">Product Totals</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div class="adset-metric">CPR <strong>${f(p.cpa)}</strong></div>
+                <div class="adset-metric">CPC <strong>${f(p.cpc)}</strong></div>
+                <div class="adset-metric">CTR <strong>${p.ctr.toFixed(2)}%</strong></div>
+                <div class="adset-metric">Purchases <strong>${p.purchases}</strong></div>
+                <div class="adset-metric">Clicks <strong>${p.clicks.toLocaleString()}</strong></div>
+                <div class="adset-metric">Impressions <strong>${p.impressions.toLocaleString()}</strong></div>
+            </div>
+        </div>`;
+
+        document.getElementById('drawerBody').innerHTML = bodyHTML;
+        document.getElementById('drawerOverlay').classList.add('open');
+        document.getElementById('drawerPanel').classList.add('open');
     }
 
     function openDrawer(campaignIdx) {
