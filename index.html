@@ -8243,12 +8243,17 @@
         const fresh  = usage.input_tokens || 0;
         const out    = usage.output_tokens || 0;
         const model  = (msg.model || '').replace(/^claude-/, '');
+        const TIER_BADGE = { plan: '🧭 PLAN · Fable 5', complex: '🔬 COMPLEX · Opus 4.8', regular: '💬 REGULAR · Sonnet 4.6', minor: '⚡ MINOR · Haiku 4.5', manual: '🎚 MANUAL' };
+        const TIER_COLOR = { plan: '#7c3aed', complex: '#dc2626', regular: '#0ea5e9', minor: '#10b981', manual: 'var(--text-sec)' };
+        const tier = msg.routing?.tier;
+        const tierBadge = tier ? `<span style="background:rgba(0,0,0,.04);border:1px solid ${TIER_COLOR[tier] || 'var(--border)'};color:${TIER_COLOR[tier] || 'var(--text-pri)'};padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.03em;">${TIER_BADGE[tier] || tier.toUpperCase()}</span>` : '';
+        const reasonTitle = msg.routing?.reason ? msg.routing.reason.replace(/"/g, '&quot;') : '';
         return `<div class="chat-msg chat-msg-claude">
             <div class="chat-msg-icon">${_CLAUDE_SVG_S}</div>
             <div class="chat-msg-bubble">
                 <div>${_renderSimpleMarkdown(msg.content)}</div>
-                <div class="chat-msg-meta">
-                    <span>${model || 'claude'}</span>
+                <div class="chat-msg-meta" title="${reasonTitle}">
+                    <span style="display:inline-flex;align-items:center;gap:6px;">${tierBadge}<span style="opacity:.6;">${model || 'claude'}</span></span>
                     <span>${fresh.toLocaleString()} fresh + ${cached.toLocaleString()} cached → ${out.toLocaleString()} out</span>
                 </div>
             </div>
@@ -8338,6 +8343,7 @@
                     content: data.answer || '(no response)',
                     model: data.model,
                     usage: data.usage,
+                    routing: data.routing,
                 });
             }
         } catch (e) {
