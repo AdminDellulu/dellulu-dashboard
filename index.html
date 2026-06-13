@@ -3996,13 +3996,18 @@
         const isActiveCampaign = name => (_campLastDate[name] || '') >= _activeCutoff;
         const activeCt = cp.filter(c => isActiveCampaign(c.name)).length;
 
-        // Campaign signal pills + iOS-style Active Only toggle (far right)
+        // Campaign signal pills + Group-by toggle + iOS-style Active Only toggle (far right)
+        const _gb = window._adsGroupBy || 'product';
         document.getElementById('campaignSummary').innerHTML = `
             <span class="signal-pill pill-scale"><span class="signal-count">${scaleCampaigns.length}</span> Scale ▲</span>
             <span class="signal-pill pill-watch"><span class="signal-count">${watchCampaigns.length}</span> Watch</span>
             <span class="signal-pill pill-kill"><span class="signal-count">${killCampaigns.length}</span> Kill ▼</span>
             <span class="signal-divider"></span>
             <span class="signal-summary"><strong>${isActiveOnly ? activeCt : cp.length}</strong> campaigns · ROAS <strong>${blendedROAS.toFixed(2)}x</strong></span>
+            <span style="display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;font-size:11px;font-weight:700;">
+                <button onclick="window._adsGroupBy='product';renderAds();" style="padding:5px 12px;border:none;cursor:pointer;background:${_gb==='product'?'var(--purple)':'transparent'};color:${_gb==='product'?'#fff':'var(--text-sec)'};">By Product</button>
+                <button onclick="window._adsGroupBy='campaign';renderAds();" style="padding:5px 12px;border:none;cursor:pointer;background:${_gb==='campaign'?'var(--purple)':'transparent'};color:${_gb==='campaign'?'#fff':'var(--text-sec)'};">By Campaign</button>
+            </span>
             <span class="signal-toggle-wrap ${isActiveOnly ? 'active' : ''}" onclick="window._adsActiveOnly=!window._adsActiveOnly;renderAds();">
                 <span class="signal-toggle-label">Active Only</span>
                 <span class="signal-toggle-track"><span class="signal-toggle-thumb"></span></span>
@@ -4088,28 +4093,82 @@
         // Filter campaigns if Active Only toggle is on (reuse isActiveCampaign computed above)
         const displayCampaigns = isActiveOnly ? drawerCampaigns.filter(c => isActiveCampaign(c.name)) : drawerCampaigns;
 
-        // ===== CAMPAIGN CARDS GRID (restored) =====
-        document.getElementById('campaignsGrid').innerHTML = displayCampaigns.map((c, idx) => {
-            const origIdx = drawerCampaigns.indexOf(c);
-            const action = classifyPerf(c.roas, c.spend);
-            const actionLabel = action === 'scale' ? 'SCALE ▲' : action === 'watch' ? 'WATCH' : action === 'kill' ? 'KILL ▼' : 'TESTING';
-            const roasColor = perfColor(c.roas, c.spend);
-            const asCount = c._adsets.length;
-            return `<div class="campaign-card ${action}" onclick="openDrawer(${origIdx})">
-                <div class="campaign-name">${c.name}</div>
-                <div class="campaign-roas" style="color:${roasColor}">${c.spend > 0 ? c.roas.toFixed(2)+'x' : 'N/A'} <span class="roas-tag">ROAS</span></div>
-                <div class="campaign-metrics-grid">
-                    <div class="campaign-metric"><span class="campaign-label">Spend</span> <span class="campaign-value">${fmtR(c.spend)}</span></div>
-                    <div class="campaign-metric"><span class="campaign-label">Revenue</span> <span class="campaign-value">${fmtR(c.revenue)}</span></div>
-                    <div class="campaign-metric"><span class="campaign-label">CPR</span> <span class="campaign-value">${fmtR(c.cpa)}</span></div>
-                    <div class="campaign-metric"><span class="campaign-label">CTR</span> <span class="campaign-value">${c.ctr.toFixed(2)}%</span></div>
-                </div>
-                <div class="campaign-footer">
-                    <span class="campaign-purchases">${c.purchases} purchases${asCount ? ' · '+asCount+' adset'+(asCount>1?'s':'') : ''}</span>
-                    <span class="action-badge ${action}">${actionLabel}</span>
-                </div>
-            </div>`;
-        }).join('');
+        // ===== AGGREGATE CAMPAIGNS INTO PRODUCT BRAND-KEYS =====
+        // Same brand-key extractor that powers the global product filter, so the same
+        // bucket of campaigns appears whether you filter or just group by brand here.
+        const prodAgg = {};
+        displayCampaigns.forEach(c => {
+            const rawKey = (c.name || '').split('|')[0].trim() || 'Other';
+            const pKey = _normalizeProductKey(rawKey) || rawKey;
+            if (!prodAgg[pKey]) prodAgg[pKey] = { name: pKey, spend: 0, revenue: 0, impressions: 0, clicks: 0, purchases: 0, _campaigns: [] };
+            prodAgg[pKey].spend       += c.spend       || 0;
+            prodAgg[pKey].revenue     += c.revenue     || 0;
+            prodAgg[pKey].impressions += c.impressions || 0;
+            prodAgg[pKey].clicks      += c.clicks      || 0;
+            prodAgg[pKey].purchases   += c.purchases   || 0;
+            prodAgg[pKey]._campaigns.push(c);
+        });
+        const drawerProducts = Object.values(prodAgg).map(p => ({
+            ...p,
+            roas: p.spend > 0 ? p.revenue / p.spend : 0,
+            cpa:  p.purchases > 0 ? p.spend / p.purchases : 0,
+            cpc:  p.clicks > 0 ? p.spend / p.clicks : 0,
+            ctr:  p.impressions > 0 ? (p.clicks / p.impressions * 100) : 0,
+        })).sort((a, b) => b.revenue - a.revenue);
+        window._drawerProducts = drawerProducts;
+
+        // ===== CARDS GRID (Product or Campaign view) =====
+        let cardsHTML = '';
+        if (_gb === 'product') {
+            cardsHTML = drawerProducts.map((p) => {
+                const action = classifyPerf(p.roas, p.spend);
+                const actionLabel = action === 'scale' ? 'SCALE ▲' : action === 'watch' ? 'WATCH' : action === 'kill' ? 'KILL ▼' : 'TESTING';
+                const roasColor = perfColor(p.roas, p.spend);
+                const cCount = p._campaigns.length;
+                // Click falls through to the largest-revenue child campaign's drawer until
+                // a dedicated product drawer is ported.
+                const topChild = p._campaigns[0];
+                const fallbackIdx = topChild ? drawerCampaigns.indexOf(topChild) : -1;
+                const clickAttr = fallbackIdx >= 0 ? `onclick="openDrawer(${fallbackIdx})"` : '';
+                return `<div class="campaign-card ${action}" ${clickAttr}>
+                    <div class="campaign-name">${p.name}</div>
+                    <div class="campaign-roas" style="color:${roasColor}">${p.spend > 0 ? p.roas.toFixed(2)+'x' : 'N/A'} <span class="roas-tag">ROAS</span></div>
+                    <div class="campaign-metrics-grid">
+                        <div class="campaign-metric"><span class="campaign-label">Spend</span> <span class="campaign-value">${fmtR(p.spend)}</span></div>
+                        <div class="campaign-metric"><span class="campaign-label">Revenue</span> <span class="campaign-value">${fmtR(p.revenue)}</span></div>
+                        <div class="campaign-metric"><span class="campaign-label">CPR</span> <span class="campaign-value">${fmtR(p.cpa)}</span></div>
+                        <div class="campaign-metric"><span class="campaign-label">CTR</span> <span class="campaign-value">${p.ctr.toFixed(2)}%</span></div>
+                    </div>
+                    <div class="campaign-footer">
+                        <span class="campaign-purchases">${p.purchases} purchases · ${cCount} campaign${cCount>1?'s':''}</span>
+                        <span class="action-badge ${action}">${actionLabel}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        } else {
+            cardsHTML = displayCampaigns.map((c) => {
+                const origIdx = drawerCampaigns.indexOf(c);
+                const action = classifyPerf(c.roas, c.spend);
+                const actionLabel = action === 'scale' ? 'SCALE ▲' : action === 'watch' ? 'WATCH' : action === 'kill' ? 'KILL ▼' : 'TESTING';
+                const roasColor = perfColor(c.roas, c.spend);
+                const asCount = c._adsets.length;
+                return `<div class="campaign-card ${action}" onclick="openDrawer(${origIdx})">
+                    <div class="campaign-name">${c.name}</div>
+                    <div class="campaign-roas" style="color:${roasColor}">${c.spend > 0 ? c.roas.toFixed(2)+'x' : 'N/A'} <span class="roas-tag">ROAS</span></div>
+                    <div class="campaign-metrics-grid">
+                        <div class="campaign-metric"><span class="campaign-label">Spend</span> <span class="campaign-value">${fmtR(c.spend)}</span></div>
+                        <div class="campaign-metric"><span class="campaign-label">Revenue</span> <span class="campaign-value">${fmtR(c.revenue)}</span></div>
+                        <div class="campaign-metric"><span class="campaign-label">CPR</span> <span class="campaign-value">${fmtR(c.cpa)}</span></div>
+                        <div class="campaign-metric"><span class="campaign-label">CTR</span> <span class="campaign-value">${c.ctr.toFixed(2)}%</span></div>
+                    </div>
+                    <div class="campaign-footer">
+                        <span class="campaign-purchases">${c.purchases} purchases${asCount ? ' · '+asCount+' adset'+(asCount>1?'s':'') : ''}</span>
+                        <span class="action-badge ${action}">${actionLabel}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+        document.getElementById('campaignsGrid').innerHTML = cardsHTML;
 
         // ===== CARDS COLLAPSE: measure 1 row + hide overflow =====
         requestAnimationFrame(() => {
