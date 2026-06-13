@@ -1130,7 +1130,8 @@
         <div class="sidebar" id="sidebar">
             <div class="sidebar-brand">Dellulu</div>
             <div class="nav-group">
-                <div class="nav-item active" data-tab="overview"><div class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center;color:var(--purple);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><div class="nav-label">Key Insights</div></div>
+                <div class="nav-item active" data-tab="ordersintel"><div class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center;color:var(--purple);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div class="nav-label">Orders <span style="color:var(--purple);font-weight:800;">Intel</span></div></div>
+                <div class="nav-item" data-tab="overview"><div class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center;color:var(--purple);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><div class="nav-label">Key Insights</div></div>
                 <div class="nav-item" data-tab="ads"><div class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center;color:var(--purple);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div><div class="nav-label">Ad <span style="color:var(--purple);font-weight:800;">Pulse</span></div></div>
                 <div class="nav-item" data-tab="finance"><div class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center;color:var(--purple);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 0 2H9.83a2 2 0 0 0-1.92 2.56l2.33 8A2 2 0 0 0 12.46 20h8.3a2 2 0 0 0 1.946-2.488l-2.28-9.89A2 2 0 0 0 18.146 7H19z"/></svg></div><div class="nav-label">Finance</div></div>
                 <div class="nav-item" data-tab="shipping"><div class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center;color:var(--purple);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v5a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1z"/><circle cx="7" cy="18" r="2"/><path d="M15 18h6"/></svg></div><div class="nav-label">Shipping</div></div>
@@ -1168,7 +1169,8 @@
 
             <div class="content">
                 <div class="tabs">
-                    <button class="tab-button active" data-tab="overview">Key Insights</button>
+                    <button class="tab-button active" data-tab="ordersintel">Orders <span style="color:var(--purple);font-weight:800;">Intel</span></button>
+                    <button class="tab-button" data-tab="overview">Key Insights</button>
                     <button class="tab-button" data-tab="ads">Ad <span style="color:var(--purple);font-weight:800;">Pulse</span></button>
                     <button class="tab-button" data-tab="finance">Finance</button>
                     <button class="tab-button" data-tab="shipping">Shipping</button>
@@ -1178,8 +1180,24 @@
                     <button class="tab-button" data-tab="uniteconomics">Unit Economics</button>
                 </div>
 
+                <!-- ===== ORDERS INTELLIGENCE (first tab) ===== -->
+                <div class="tab-content active" id="ordersintel">
+                    <div id="oiBanner"></div>
+                    <div class="kpi-row" id="oiKpis"></div>
+                    <div class="grid-2">
+                        <div class="chart-box"><div class="chart-title">⚡ What needs you now</div><div id="oiSignals"></div></div>
+                        <div class="chart-box"><div class="chart-title">📦 6-Bucket Model · order-anchored</div><div id="oiFunnel"></div><div id="oiConf" style="font-size:11px;color:var(--text-sec);margin-top:10px"></div></div>
+                    </div>
+                    <div class="chart-box"><div class="chart-title">🧭 New Product Verdicts · Scale / Hold / Kill</div><div id="oiDecisions" class="grid-4"></div></div>
+                    <div class="chart-box"><div class="chart-title">🏷 Product Leaderboard</div><div id="oiLeaderboard" style="overflow-x:auto"></div></div>
+                    <div class="grid-2">
+                        <div class="chart-box"><div class="chart-title">Bucket Distribution</div><div class="chart-inner"><canvas id="oiBucketChart"></canvas></div></div>
+                        <div class="chart-box"><div class="chart-title">Aging by Product (₹ stuck 4d+)</div><div class="chart-inner"><canvas id="oiAgingChart"></canvas></div></div>
+                    </div>
+                </div>
+
                 <!-- ===== OVERVIEW ===== -->
-                <div class="tab-content active" id="overview">
+                <div class="tab-content" id="overview">
                     <div id="overviewAlerts"></div>
                     <div class="kpi-row" id="overviewKPIs"></div>
 
@@ -1953,7 +1971,8 @@
     <div class="mobile-more-backdrop" id="moreBackdrop"></div>
     <div class="mobile-nav">
         <div class="mobile-nav-inner">
-            <div class="mobile-nav-item active" data-tab="overview"><div class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>Home</div>
+            <div class="mobile-nav-item active" data-tab="ordersintel"><div class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>Intel</div>
+            <div class="mobile-nav-item" data-tab="overview"><div class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>Home</div>
             <div class="mobile-nav-item" data-tab="ads"><div class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div>Ad Pulse</div>
             <div class="mobile-nav-item" data-tab="finance"><div class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 0 2H9.83a2 2 0 0 0-1.92 2.56l2.33 8A2 2 0 0 0 12.46 20h8.3a2 2 0 0 0 1.946-2.488l-2.28-9.89A2 2 0 0 0 18.146 7H19z"/></svg></div>Finance</div>
             <div class="mobile-nav-item" data-tab="shipping"><div class="nav-icon" style="display:inline-flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v5a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1z"/><circle cx="7" cy="18" r="2"/><path d="M15 18h6"/></svg></div>Ship</div>
@@ -6316,7 +6335,7 @@
     }
 
     // ==================== TAB NAVIGATION ====================
-    const tabTitles = { overview:'Overview', ads:'AdPulse', finance:'Finance', shipping:'Shipping', products:'Products', settlements:'Settlements', strategy:'Strategy' };
+    const tabTitles = { ordersintel:'Orders Intelligence', overview:'Overview', ads:'AdPulse', finance:'Finance', shipping:'Shipping', products:'Products', settlements:'Settlements', strategy:'Strategy' };
 
     function switchToTab(tab) {
         document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
@@ -6549,6 +6568,7 @@
     }
 
     function renderTab(tab) {
+        if (tab==='ordersintel') { renderOrdersIntel(); return; }
         if (tab==='overview') renderOverview();
         else if (tab==='products') renderProducts();
         else if (tab==='ads') renderAds();
@@ -6559,6 +6579,53 @@
         else if (tab==='strategy') renderStrategy();
         _rvLastDur = document.getElementById('durationSelect').value;
         if (typeof syncDWMToggles === 'function') syncDWMToggles();
+    }
+
+    // ==================== ORDERS INTELLIGENCE TAB ====================
+    let _oiCharts = {};
+    async function renderOrdersIntel(){
+        const $ = id => document.getElementById(id);
+        const fmt = v => { v=+v||0; return v>=1e7?'₹'+(v/1e7).toFixed(2)+'Cr':v>=1e5?'₹'+(v/1e5).toFixed(2)+'L':v>=1e3?'₹'+(v/1e3).toFixed(1)+'K':'₹'+Math.round(v); };
+        const COL = {Delivered:'#059669','In Transit':'#3b82f6',RTO:'#f87171','Ready to Ship':'#f59e0b',Cancelled:'#94a3b8','Not Manifested':'#7c3aed'};
+        const ORD = ['Delivered','In Transit','RTO','Ready to Ship','Not Manifested','Cancelled'];
+        try{
+            const [sum,scd,aging,coh,rar,outbox] = await Promise.all([
+                sq('vw_oi_bucket_summary','?select=*'),
+                sq('vw_oi_product_scorecard','?select=*'),
+                sq('vw_oi_aging','?select=*&order=stuck.desc'),
+                sq('product_cohorts','?select=*&cohort_type=eq.soft'),
+                sq('vw_oi_revenue_at_risk','?select=*'),
+                sq('alert_outbox','?select=message_id,severity,title,body,fired_at&order=fired_at.desc&limit=10')
+            ]);
+            const bm={}; sum.forEach(s=>bm[s.bucket]={n:+s.n,v:+s.value});
+            const settled=(bm.Delivered?.n||0)+(bm.RTO?.n||0);
+            const dr=settled?(100*(bm.Delivered?.n||0)/settled).toFixed(1):'0';
+            const rr=settled?(100*(bm.RTO?.n||0)/settled).toFixed(1):'0';
+            const agN=aging.reduce((s,a)=>s+ +a.stuck,0), agV=aging.reduce((s,a)=>s+ +a.value_stuck,0);
+            const r0=rar[0]||{};
+            $('oiBanner').innerHTML='<div class="alert-banner info">🛰 Live on Supabase · delivery rate on settled orders only · '+new Date().toLocaleString('en-IN')+'</div>';
+            $('oiKpis').innerHTML=[
+                ['green','Delivery Rate · settled',dr+'%',(bm.Delivered?.n||0)+' / '+settled+' settled'],
+                ['red','RTO Rate · settled',rr+'%',(bm.RTO?.n||0)+' RTO · '+fmt(bm.RTO?.v||0)+' lost'],
+                ['gold','₹ Aging (4d+)',fmt(agV),agN+' orders · '+(aging[0]?aging[0].product.split(/[ ™|]/)[0]:'')],
+                ['blue','₹ Revenue at Risk',fmt(r0.at_risk_value||0),'of '+fmt(r0.in_transit_value||0)+' in motion']
+            ].map(k=>'<div class="kpi-card '+k[0]+'"><div class="kpi-top"><span class="kpi-label">'+k[1]+'</span></div><div class="kpi-value">'+k[2]+'</div><div class="kpi-context">'+k[3]+'</div></div>').join('');
+            const sevCls=s=>s==='p1'?'':s==='p2'?' warning':' info';
+            $('oiSignals').innerHTML = outbox.length? outbox.map(o=>'<div class="alert-banner'+sevCls(o.severity)+'" style="display:block;margin-bottom:8px"><b>'+o.title+'</b><div style="font-weight:400;margin-top:3px;white-space:pre-line">'+(o.body||'').slice(0,180)+'</div></div>').join('') : '<div class="alert-banner info">No active signals.</div>';
+            const maxN=Math.max.apply(null,ORD.map(b=>bm[b]?.n||0).concat([1]));
+            $('oiFunnel').innerHTML=ORD.map(b=>{const n=bm[b]?.n||0,v=bm[b]?.v||0;return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:104px;font-size:12px;color:var(--text-sec);text-align:right">'+b+'</div><div style="flex:1;height:26px;background:var(--surface-2);border-radius:6px;overflow:hidden"><div style="height:100%;width:'+Math.max(7,n/maxN*100)+'%;background:'+COL[b]+';border-radius:6px;display:flex;align-items:center;padding:0 8px;font-size:12px;font-weight:700;color:#fff">'+n.toLocaleString()+'</div></div><div style="width:64px;font-size:12px;font-weight:700;text-align:right;color:'+COL[b]+'">'+fmt(v)+'</div></div>';}).join('');
+            const smin=75,kmax=60;
+            const mature=coh.filter(c=>c.settle_pct>=90&&c.delivery_rate!=null).sort((a,b)=>b.settled_count-a.settled_count).slice(0,8);
+            $('oiDecisions').innerHTML = mature.length? mature.map(c=>{const col=c.delivery_rate>=smin?'#059669':(c.delivery_rate>kmax?'#f59e0b':'#f87171');const lbl=c.delivery_rate>=smin?'SCALE':(c.delivery_rate>kmax?'HOLD':'KILL');return '<div class="kpi-card"><div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+c.product+'</div><div style="font-size:11px;color:var(--text-sec);margin:3px 0">'+c.shipped_count+' shipped · '+c.settle_pct+'% settled</div><span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:'+col+'22;color:'+col+'">'+lbl+'</span><div style="font-size:18px;font-weight:800;margin-top:6px;color:'+col+'">'+c.delivery_rate+'%<span style="font-size:11px;color:var(--text-sec)"> del</span></div></div>';}).join('') : '<div class="kpi-context" style="padding:10px">Cohorts still maturing.</div>';
+            const rows=[...scd].sort((a,b)=>b.orders-a.orders);
+            $('oiLeaderboard').innerHTML='<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>'+['Product','Orders','Settled','Del','RTO','Del Rate','₹ Value'].map(h=>'<th style="text-align:left;padding:9px 12px;background:rgba(124,58,237,.04);border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;color:var(--text-sec)">'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.map(p=>{const c=p.del_rate>=65?'#059669':(p.del_rate>=50?'#f59e0b':'#f87171');return '<tr><td style="padding:9px 12px;border-bottom:1px solid var(--border);font-weight:600;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+p.product+'</td><td style="padding:9px 12px;border-bottom:1px solid var(--border)">'+p.orders+'</td><td style="padding:9px 12px;border-bottom:1px solid var(--border)">'+p.settled+'</td><td style="padding:9px 12px;border-bottom:1px solid var(--border)">'+p.delivered+'</td><td style="padding:9px 12px;border-bottom:1px solid var(--border)">'+p.rto+'</td><td style="padding:9px 12px;border-bottom:1px solid var(--border);font-weight:800;color:'+c+'">'+(p.del_rate==null?'—':p.del_rate+'%')+'</td><td style="padding:9px 12px;border-bottom:1px solid var(--border)">'+fmt(p.value)+'</td></tr>';}).join('')+'</tbody></table>';
+            $('oiConf').textContent='Velocity outcomes backfilled from courier reports; ~98 orders still awaiting final status.';
+            if(_oiCharts.b)_oiCharts.b.destroy();
+            _oiCharts.b=new Chart($('oiBucketChart'),{type:'doughnut',data:{labels:ORD,datasets:[{data:ORD.map(b=>bm[b]?.n||0),backgroundColor:ORD.map(b=>COL[b]),borderColor:'#ffffff',borderWidth:2}]},options:{plugins:{legend:{position:'right',labels:{color:'#64748b',usePointStyle:true,padding:9,font:{size:11}}}},cutout:'58%'}});
+            const ag=aging.slice(0,7);
+            if(_oiCharts.a)_oiCharts.a.destroy();
+            _oiCharts.a=new Chart($('oiAgingChart'),{type:'bar',data:{labels:ag.map(a=>a.product.split(/[ ™|]/)[0]),datasets:[{data:ag.map(a=>+a.value_stuck),backgroundColor:'#f59e0bcc',borderRadius:5}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#94a3b8',callback:v=>fmt(v)},grid:{color:'#e2e8f0'}},y:{ticks:{color:'#64748b',font:{size:11}},grid:{display:false}}}}});
+        }catch(e){ $('oiBanner').innerHTML='<div class="alert-banner">Orders Intel load error: '+(e&&e.message||e)+'</div>'; }
     }
 
     // ==================== EVENT LISTENERS ====================
